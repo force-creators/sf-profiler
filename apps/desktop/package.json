@@ -1,0 +1,62 @@
+{
+  "name": "@sfdc-profiler/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:web": "npm run build -w @sfdc-profiler/web",
+    "dev": "concurrently -k \"npm run dev -w @sfdc-profiler/web -- --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && npm run dev:electron\"",
+    "dev:electron": "npm run build && cross-env ELECTRON_RUN_AS_NODE= VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
+    "dist:mac": "npm run build:web && npm run build && electron-builder --mac dmg zip",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@electron/notarize": "^2.5.0",
+    "@types/node": "^22.15.21",
+    "7zip-bin": "^5.2.0",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "42.2.0",
+    "electron-builder": "^26.8.1",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.sfdc.profiler",
+    "productName": "SFDC Profiler",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/dist",
+        "to": "web-dist",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "afterSign": "build/notarize.cjs",
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools",
+      "icon": "../web/assets/icon.icns"
+    },
+    "fileAssociations": [
+      {
+        "ext": "log",
+        "name": "Apex Debug Log",
+        "description": "Salesforce Apex debug log",
+        "role": "Editor"
+      }
+    ]
+  }
+}

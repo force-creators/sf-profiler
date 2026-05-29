@@ -1,0 +1,25 @@
+{
+  "name": "sfdc-profiler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev": "npm run dev -w @sfdc-profiler/web",
+    "dev:desktop": "npm run dev -w @sfdc-profiler/desktop",
+    "deploy:web": "npm run build -w @sfdc-profiler/web && npx wrangler deploy --name sfdc-profiler-web --assets apps/web/dist",
+    "deploy:mac": "npm run dist:mac -w @sfdc-profiler/desktop",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

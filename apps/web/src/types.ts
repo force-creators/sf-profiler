@@ -1,0 +1,24 @@
+import type { ApexLogProfile } from '@sfdc-profiler/core';
+
+export type LoadedLog = {
+  fileName: string;
+  rawText: string;
+  profile: ApexLogProfile;
+};
+
+export type StoredLog = LoadedLog & {
+  version: 1;
+  storedAt: string;
+};
+
+export type RecentStoredLog = {
+  hash: string;
+  fileName: string;
+  storedAt: string;
+};
+
+export type AppTheme = 'light' | 'dark';
+
+export type LimitsSectionId = 'soql' | 'dml';
+
+export type ViewId = 'summary' | 'limits' | 'rawLog' | 'settings' | 'about';

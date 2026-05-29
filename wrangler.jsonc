@@ -1,0 +1,7 @@
+{
+  "name": "sfdc-profiler-web",
+  "compatibility_date": "2026-05-26",
+  "assets": {
+    "directory": "apps/web/dist"
+  }
+}
