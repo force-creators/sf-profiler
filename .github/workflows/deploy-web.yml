@@ -12,6 +12,7 @@ concurrency:
 
 permissions:
   contents: read
+  deployments: write
 
 jobs:
   deploy:
@@ -22,12 +23,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version-file: .nvmrc
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -41,8 +42,20 @@ jobs:
 
       - name: Validate deployment configuration
         env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_WORKER_NAME: ${{ vars.CLOUDFLARE_WORKER_NAME }}
         run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "CLOUDFLARE_API_TOKEN secret is required."
+            exit 1
+          fi
+
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "CLOUDFLARE_ACCOUNT_ID environment variable is required."
+            exit 1
+          fi
+
           if [ -z "$CLOUDFLARE_WORKER_NAME" ]; then
             echo "CLOUDFLARE_WORKER_NAME environment variable is required."
             exit 1
@@ -52,5 +65,7 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --name ${{ vars.CLOUDFLARE_WORKER_NAME }} --assets apps/web/dist
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          command: deploy --config wrangler.jsonc --name ${{ vars.CLOUDFLARE_WORKER_NAME }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
