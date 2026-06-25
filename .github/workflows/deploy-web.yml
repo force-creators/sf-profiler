@@ -1,0 +1,56 @@
+name: Deploy Web
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy web app
+    runs-on: ubuntu-latest
+    environment: main
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck web app
+        run: npm run typecheck -w @sfdc-profiler/web
+
+      - name: Build web app
+        run: npm run build -w @sfdc-profiler/web
+
+      - name: Validate deployment configuration
+        env:
+          CLOUDFLARE_WORKER_NAME: ${{ vars.CLOUDFLARE_WORKER_NAME }}
+        run: |
+          if [ -z "$CLOUDFLARE_WORKER_NAME" ]; then
+            echo "CLOUDFLARE_WORKER_NAME environment variable is required."
+            exit 1
+          fi
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --name ${{ vars.CLOUDFLARE_WORKER_NAME }} --assets apps/web/dist
