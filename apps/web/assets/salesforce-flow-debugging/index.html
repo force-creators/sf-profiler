@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Salesforce Flow Debugging from Debug Logs | SF Profiler</title>
+    <meta
+      name="description"
+      content="Debug Salesforce Flow behavior in transaction logs with SF Profiler. Trace Flow paths, record updates, recursion signals, DML, SOQL, CPU time, and governor limits locally."
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <link rel="canonical" href="https://sfprofiler.com/salesforce-flow-debugging/" />
+    <link rel="icon" href="../icon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="../icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SF Profiler" />
+    <meta property="og:title" content="Salesforce Flow Debugging from Debug Logs | SF Profiler" />
+    <meta
+      property="og:description"
+      content="Trace Flow activity, record updates, automation paths, SOQL, DML, and limits in Salesforce debug logs."
+    />
+    <meta property="og:url" content="https://sfprofiler.com/salesforce-flow-debugging/" />
+    <meta property="og:image" content="https://sfprofiler.com/icon.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Salesforce Flow Debugging from Debug Logs | SF Profiler" />
+    <meta
+      name="twitter:description"
+      content="Use SF Profiler to inspect Flow execution in Salesforce debug logs without uploading log data."
+    />
+    <meta name="twitter:image" content="https://sfprofiler.com/icon.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": "Salesforce Flow Debugging from Debug Logs",
+        "url": "https://sfprofiler.com/salesforce-flow-debugging/",
+        "description": "SF Profiler helps troubleshoot Salesforce Flow behavior in debug logs, including Flow paths, record updates, recursion signals, DML, SOQL, CPU time, and governor limits.",
+        "isPartOf": {
+          "@type": "SoftwareApplication",
+          "name": "SF Profiler",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Web",
+          "url": "https://sfprofiler.com/"
+        }
+      }
+    </script>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.5;
+        color: #172033;
+        background: #f6f8fb;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 48px 20px 64px;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 44px;
+      }
+
+      img {
+        width: 42px;
+        height: 42px;
+      }
+
+      h1 {
+        max-width: 760px;
+        margin: 0 0 18px;
+        font-size: clamp(2.2rem, 7vw, 4.2rem);
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        margin: 38px 0 12px;
+        font-size: 1.45rem;
+      }
+
+      p,
+      li {
+        font-size: 1.05rem;
+      }
+
+      .lead {
+        max-width: 720px;
+        font-size: 1.25rem;
+        color: #48566f;
+      }
+
+      a {
+        color: #2557d6;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        margin-top: 18px;
+        padding: 0 18px;
+        border-radius: 6px;
+        background: #2557d6;
+        color: #fff;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 42px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="../icon.png" alt="" aria-hidden="true" />
+        <strong>SF Profiler</strong>
+      </header>
+
+      <h1>Salesforce Flow debugging from transaction debug logs</h1>
+      <p class="lead">
+        Flow behavior often becomes hard to reason about once it runs alongside triggers, workflow, validation, duplicate rules, SOQL, and DML. SF Profiler reads the Salesforce debug log and keeps Flow activity connected to the rest of the transaction.
+      </p>
+      <a class="button" href="../">Open SF Profiler</a>
+
+      <h2>Trace automation in context</h2>
+      <p>
+        SF Profiler surfaces Flow and workflow activity on the same timeline as Apex, database calls, and limit samples. That context helps when a Flow update triggers more automation, creates repeated DML, or contributes to CPU time.
+      </p>
+
+      <h2>Find recursion and repeated paths</h2>
+      <p>
+        The profiler includes insight views for repeated automation paths and recursive Flow or trigger behavior when that evidence is present in the log. This makes it easier to see which automation step started the loop and what happened afterward.
+      </p>
+
+      <h2>Useful when troubleshooting</h2>
+      <ul>
+        <li>Record-triggered Flow performance issues.</li>
+        <li>Flow updates that cause additional DML or trigger execution.</li>
+        <li>Transactions where Flow and Apex share the same governor limits.</li>
+        <li>Debug logs that need to stay local because they contain org or customer data.</li>
+      </ul>
+
+      <nav aria-label="Related SF Profiler pages">
+        <a href="../salesforce-debug-log-analyzer/">Salesforce debug log analyzer</a>
+        <a href="../apex-log-profiler/">Apex log profiler</a>
+        <a href="../governor-limits-analysis/">Governor limits analysis</a>
+      </nav>
+    </main>
+  </body>
+</html>

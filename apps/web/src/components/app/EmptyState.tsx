@@ -26,13 +26,13 @@ export function EmptyState({
         hasRecentLogs ? ' empty-state-with-recents' : ''
       }`}
     >
-      <img className="empty-state-icon" src="./icon.png" alt="SFDC Profiler" />
+      <img className="empty-state-icon" src="./icon.png" alt="SF Profiler" />
       <div className="empty-state-main panel">
-        <h2>{isRestoring ? 'Restoring saved log' : 'Open an Apex debug log'}</h2>
+        <h2>{isRestoring ? 'Restoring saved log' : 'Open a Salesforce debug log'}</h2>
         <p>
           {isRestoring
             ? 'Loading the log from browser storage.'
-            : 'An effective Salesforce profiler for Apex logs. Drag and drop a log file, or choose one manually. All parsing stays on-device in your browser.'}
+            : 'An effective Salesforce profiler for Apex, Flow, SOQL, DML, and governor limits. Drag and drop a log file, or choose one manually. All parsing stays on-device in your browser.'}
         </p>
         {!isRestoring && (
           <label className="upload-target">

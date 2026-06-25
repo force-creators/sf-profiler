@@ -145,8 +145,8 @@ export function App() {
 
   useEffect(() => {
     document.title = loadedLog?.fileName
-      ? `${loadedLog.fileName} | SFDC Profiler`
-      : 'SFDC Profiler | Salesforce Profiler for Apex Debug Logs';
+      ? `${loadedLog.fileName} | SF Profiler`
+      : 'SF Profiler | Salesforce Debug Log Analyzer';
   }, [loadedLog]);
 
   useEffect(() => {

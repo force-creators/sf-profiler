@@ -65,6 +65,8 @@ const WORKFLOW_EVENTS = new Set([
   'FLOW_BULK_ELEMENT_END',
 ]);
 
+export const parserVersion = 2;
+
 export function parseApexLog(
   logText: string,
   options: ParseApexLogOptions = {}
@@ -140,6 +142,7 @@ export function parseApexLog(
     soqlExecutions,
     dmlExecutions,
     insights: [],
+    parserVersion,
     executionTime: lastReportedTime,
     totalLines: lineNumber,
     processedLines,

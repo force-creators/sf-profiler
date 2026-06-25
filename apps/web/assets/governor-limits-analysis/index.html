@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Salesforce Governor Limits Analysis | SF Profiler</title>
+    <meta
+      name="description"
+      content="Analyze Salesforce governor limits in debug logs with SF Profiler. Review CPU time, heap, SOQL, DML, callouts, queueable jobs, future calls, and publish-immediate usage locally."
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <link rel="canonical" href="https://sfprofiler.com/governor-limits-analysis/" />
+    <link rel="icon" href="../icon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="../icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SF Profiler" />
+    <meta property="og:title" content="Salesforce Governor Limits Analysis | SF Profiler" />
+    <meta
+      property="og:description"
+      content="Review CPU, heap, SOQL, DML, callout, queueable, future, and publish-immediate limits from Salesforce debug logs."
+    />
+    <meta property="og:url" content="https://sfprofiler.com/governor-limits-analysis/" />
+    <meta property="og:image" content="https://sfprofiler.com/icon.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Salesforce Governor Limits Analysis | SF Profiler" />
+    <meta
+      name="twitter:description"
+      content="Use SF Profiler to understand governor limit usage in Salesforce debug logs without uploading logs."
+    />
+    <meta name="twitter:image" content="https://sfprofiler.com/icon.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": "Salesforce Governor Limits Analysis",
+        "url": "https://sfprofiler.com/governor-limits-analysis/",
+        "description": "SF Profiler analyzes Salesforce governor limit samples in debug logs, including CPU time, heap, SOQL, DML, callouts, queueable jobs, future calls, and publish-immediate usage.",
+        "isPartOf": {
+          "@type": "SoftwareApplication",
+          "name": "SF Profiler",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Web",
+          "url": "https://sfprofiler.com/"
+        }
+      }
+    </script>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.5;
+        color: #172033;
+        background: #f6f8fb;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 48px 20px 64px;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 44px;
+      }
+
+      img {
+        width: 42px;
+        height: 42px;
+      }
+
+      h1 {
+        max-width: 760px;
+        margin: 0 0 18px;
+        font-size: clamp(2.2rem, 7vw, 4.2rem);
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        margin: 38px 0 12px;
+        font-size: 1.45rem;
+      }
+
+      p,
+      li {
+        font-size: 1.05rem;
+      }
+
+      .lead {
+        max-width: 720px;
+        font-size: 1.25rem;
+        color: #48566f;
+      }
+
+      a {
+        color: #2557d6;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        margin-top: 18px;
+        padding: 0 18px;
+        border-radius: 6px;
+        background: #2557d6;
+        color: #fff;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 42px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="../icon.png" alt="" aria-hidden="true" />
+        <strong>SF Profiler</strong>
+      </header>
+
+      <h1>Salesforce governor limits analysis from debug logs</h1>
+      <p class="lead">
+        Governor limits are shared by the work inside a Salesforce transaction. SF Profiler helps connect limit samples to Apex, Flow, SOQL, DML, callouts, async work, and other activity found in the debug log.
+      </p>
+      <a class="button" href="../">Open SF Profiler</a>
+
+      <h2>Review the limits that matter</h2>
+      <p>
+        The limits view groups samples for CPU time, heap, SOQL queries and rows, DML statements and rows, callouts, future calls, queueable jobs, and publish-immediate DML. That makes it easier to see whether a transaction is failing because of one expensive step or many smaller operations.
+      </p>
+
+      <h2>Move from symptom to source</h2>
+      <p>
+        Limit usage is most useful when it is connected to execution context. SF Profiler keeps timeline entries, summaries, database operations, and raw log details close together so you can move from a high CPU or SOQL count to the events that contributed to it.
+      </p>
+
+      <h2>Analyze privately</h2>
+      <p>
+        Debug logs often contain details from real orgs and transactions. SF Profiler processes the log locally in your browser or desktop app, so you can investigate governor limits without sending the file to another service.
+      </p>
+
+      <nav aria-label="Related SF Profiler pages">
+        <a href="../salesforce-debug-log-analyzer/">Salesforce debug log analyzer</a>
+        <a href="../salesforce-flow-debugging/">Salesforce Flow debugging</a>
+        <a href="../apex-log-profiler/">Apex log profiler</a>
+      </nav>
+    </main>
+  </body>
+</html>

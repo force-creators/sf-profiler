@@ -1,6 +1,6 @@
 export { limitTypes } from './limits';
 export type { LimitDetail, LimitType } from './limits';
-export { parseApexLog, shouldProcess } from './parser';
+export { parseApexLog, parserVersion, shouldProcess } from './parser';
 export { defaultPerformanceInsightThresholds } from './parserInsights';
 export type {
   ApexLogEntry,

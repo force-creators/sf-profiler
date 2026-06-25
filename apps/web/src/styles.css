@@ -1203,7 +1203,7 @@ body.is-resizing-summary-rows {
 .settings-layout {
   display: grid;
   gap: 16px;
-  width: min(100%, 800px);
+  width: min(100%, 980px);
   margin: 0 auto;
   align-content: start;
 }
@@ -1212,7 +1212,7 @@ body.is-resizing-summary-rows {
   display: grid;
   gap: 16px;
   width: 100%;
-  max-width: 800px;
+  max-width: 980px;
   align-content: start;
 }
 
@@ -1317,7 +1317,6 @@ body.is-resizing-summary-rows {
 
 .about-hero-copy p {
   margin: 6px 0 0;
-  max-width: 72ch;
 }
 
 .about-highlight-grid {
@@ -1355,6 +1354,23 @@ body.is-resizing-summary-rows {
   border-top: 1px solid var(--color-border-soft);
 }
 
+.about-author-heading {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.about-author-photo {
+  flex: 0 0 auto;
+  width: 80px;
+  height: 80px;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--color-border-soft);
+  object-fit: cover;
+  object-position: 50% 38%;
+}
+
 .about-author h4 {
   margin: 0;
   color: var(--color-text-muted);
@@ -1371,7 +1387,10 @@ body.is-resizing-summary-rows {
 
 .about-author p {
   margin: 0;
-  max-width: 76ch;
+}
+
+.about-author .about-social-links {
+  margin-top: 6px;
 }
 
 .about-social-links {
@@ -1493,6 +1512,11 @@ body.is-resizing-summary-rows {
 
   .about-highlight-grid {
     grid-template-columns: 1fr;
+  }
+
+  .about-author-heading {
+    justify-content: center;
+    text-align: left;
   }
 
   .about-linkedin-card {

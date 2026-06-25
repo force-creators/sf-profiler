@@ -180,6 +180,7 @@ export type ApexLogProfile = {
   soqlExecutions: SoqlExecution[];
   dmlExecutions: DmlExecution[];
   insights: ProfileInsight[];
+  parserVersion: number;
   executionTime: number;
   totalLines: number;
   processedLines: number;

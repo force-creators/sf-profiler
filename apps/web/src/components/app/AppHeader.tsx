@@ -36,7 +36,7 @@ export function AppHeader({
           <img
             className="summary-band-icon"
             src="./icon.png"
-            alt="SFDC Profiler"
+            alt="SF Profiler"
           />
         </button>
         <div className="summary-band-heading-copy">

@@ -1,4 +1,4 @@
-import { parseApexLog } from '@sfdc-profiler/core';
+import { parseApexLog, parserVersion } from '@sfdc-profiler/core';
 import { isQuotaExceededError } from './storage/browserStorage';
 import { hashProfile, hashText } from './storage/hash';
 import {
@@ -70,6 +70,7 @@ export async function findStoredLogByRawText(
   const normalized = normalizeStoredLog(parsed);
 
   if (!normalized || normalized.rawText !== rawText) {
+    await removeStoredLog(storedHash);
     return undefined;
   }
 
@@ -110,7 +111,7 @@ export async function getRecentStoredLogs(
     merged.set(candidate.hash, candidate.storedLog);
   }
 
-  for (const candidate of readRecentStoredLogsFromLocalStorage()) {
+  for (const candidate of await readRecentStoredLogsFromLocalStorage()) {
     if (!merged.has(candidate.hash)) {
       merged.set(candidate.hash, candidate.storedLog);
     }
@@ -139,7 +140,8 @@ export function closeStoredLog() {
 }
 
 export async function removeStoredLog(hash: string) {
-  const storedLog = normalizeStoredLog(await readStoredLog(hash));
+  const parsed = await readStoredLog(hash);
+  const storedLog = normalizeStoredLog(parsed);
 
   try {
     await deleteStoredLogFromIndexedDb(hash);
@@ -153,11 +155,14 @@ export async function removeStoredLog(hash: string) {
     console.warn('Unable to delete stored log from localStorage', error);
   }
 
-  if (!storedLog) {
+  const rawText =
+    typeof parsed?.rawText === 'string' ? parsed.rawText : storedLog?.rawText;
+
+  if (!rawText) {
     return;
   }
 
-  const rawHash = await hashText(storedLog.rawText);
+  const rawHash = await hashText(rawText);
 
   try {
     window.localStorage.removeItem(`${storedRawPrefix}${rawHash}`);
@@ -214,7 +219,15 @@ export async function readStoredLogFromUrl(): Promise<StoredLog | undefined> {
       return undefined;
     }
 
-    return normalizeStoredLog(parsed);
+    const normalized = normalizeStoredLog(parsed);
+
+    if (!normalized) {
+      await removeStoredLog(logHash);
+      clearUrlLogHash();
+      return undefined;
+    }
+
+    return normalized;
   } catch (error) {
     console.warn('Unable to restore Apex log analysis', error);
     return undefined;
@@ -244,6 +257,7 @@ function normalizeStoredLog(parsed?: Partial<StoredLog>): StoredLog | undefined 
     typeof parsed.fileName !== 'string' ||
     typeof parsed.rawText !== 'string' ||
     !parsed.profile ||
+    parsed.profile.parserVersion !== parserVersion ||
     !Array.isArray(parsed.profile.entries) ||
     !Array.isArray(parsed.profile.rootIds)
   ) {
@@ -266,25 +280,31 @@ function normalizeStoredLog(parsed?: Partial<StoredLog>): StoredLog | undefined 
 
 async function readRecentStoredLogsFromIndexedDb(): Promise<StoredLogMatch[]> {
   try {
-    return (await readAllStoredLogsFromIndexedDb())
-      .map(({ hash, value }) => ({
-        hash,
-        storedLog: normalizeStoredLog(value),
-      }))
-      .filter(
-        (
-          candidate
-        ): candidate is { hash: string; storedLog: StoredLog } =>
-          Boolean(candidate.storedLog)
-      );
+    const results: StoredLogMatch[] = [];
+    const incompatibleHashes: string[] = [];
+
+    for (const { hash, value } of await readAllStoredLogsFromIndexedDb()) {
+      const storedLog = normalizeStoredLog(value);
+
+      if (storedLog) {
+        results.push({ hash, storedLog });
+      } else {
+        incompatibleHashes.push(hash);
+      }
+    }
+
+    await removeIncompatibleStoredLogs(incompatibleHashes);
+
+    return results;
   } catch (error) {
     console.warn('Unable to list stored logs from IndexedDB', error);
     return [];
   }
 }
 
-function readRecentStoredLogsFromLocalStorage(): StoredLogMatch[] {
+async function readRecentStoredLogsFromLocalStorage(): Promise<StoredLogMatch[]> {
   const results: StoredLogMatch[] = [];
+  const incompatibleHashes: string[] = [];
 
   try {
     for (let index = 0; index < window.localStorage.length; index += 1) {
@@ -304,6 +324,7 @@ function readRecentStoredLogsFromLocalStorage(): StoredLogMatch[] {
       const normalized = normalizeStoredLog(JSON.parse(value) as Partial<StoredLog>);
 
       if (!normalized) {
+        incompatibleHashes.push(hash);
         continue;
       }
 
@@ -313,7 +334,19 @@ function readRecentStoredLogsFromLocalStorage(): StoredLogMatch[] {
     console.warn('Unable to list stored logs from localStorage', error);
   }
 
+  await removeIncompatibleStoredLogs(incompatibleHashes);
+
   return results;
+}
+
+async function removeIncompatibleStoredLogs(hashes: string[]) {
+  await Promise.all(
+    hashes.map((hash) =>
+      removeStoredLog(hash).catch((error) => {
+        console.warn('Unable to remove incompatible stored log', error);
+      })
+    )
+  );
 }
 
 async function persistRawTextLookup(rawText: string, hash: string) {

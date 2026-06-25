@@ -24,7 +24,7 @@
   },
   "build": {
     "appId": "com.sfdc.profiler",
-    "productName": "SFDC Profiler",
+    "productName": "SF Profiler",
     "directories": {
       "output": "release"
     },
