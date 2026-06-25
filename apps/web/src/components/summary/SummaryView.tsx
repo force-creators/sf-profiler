@@ -1,10 +1,20 @@
-import { ChevronDown, ChevronRight, Database, Gauge, Rows3 } from 'lucide-react';
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  CircleX,
+  Database,
+  Info,
+  Lightbulb,
+  OctagonAlert,
+  Rows3,
+  type LucideIcon,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import type { ApexLogEntry, ApexLogProfile } from '@sfdc-profiler/core';
+import type { ProfileInsightSeverity } from '@sfdc-profiler/core';
 import type { LoadedLog } from '../../types';
 import { DmlExecutionList } from '../limits/dml/DmlExecutionList';
 import { SoqlQueryList } from '../limits/soql/SoqlQueryList';
-import { EventList } from './EventList';
 
 const SUMMARY_COLUMN_RESIZER_SIZE = 10;
 const SUMMARY_SIDE_RESIZER_SIZE = 10;
@@ -15,24 +25,27 @@ const MIN_DML_SECTION_HEIGHT = 170;
 
 export function SummaryView({
   loadedLog,
+  onOpenInsights,
   onOpenLimitsSection,
   onTopCollapseChange,
   onSelectTimelineEntry,
   selectedEntryId,
 }: {
   loadedLog: LoadedLog;
+  onOpenInsights: (insightId?: string) => void;
   onOpenLimitsSection: (section: 'soql' | 'dml') => void;
   onTopCollapseChange: (isCollapsed: boolean) => void;
   onSelectTimelineEntry: (entryId: number) => void;
   selectedEntryId?: number;
 }) {
-  const slowestEntries = findSlowestEntries(loadedLog.profile);
   const topGridRef = useRef<HTMLDivElement | null>(null);
   const sidePanelRef = useRef<HTMLDivElement | null>(null);
-  const activeResizeRef = useRef<'columns' | 'side' | undefined>(undefined);
+  const activeResizeRef = useRef<
+    'columns' | 'sideRows' | undefined
+  >(undefined);
   const [leftColumnWidth, setLeftColumnWidth] = useState<number>();
   const [soqlSectionHeight, setSoqlSectionHeight] = useState<number>();
-  const [isSlowestCollapsed, setIsSlowestCollapsed] = useState(false);
+  const [isInsightsCollapsed, setIsInsightsCollapsed] = useState(false);
   const [isSoqlCollapsed, setIsSoqlCollapsed] = useState(false);
   const [isDmlCollapsed, setIsDmlCollapsed] = useState(false);
   const soqlExecutions = useMemo(
@@ -64,12 +77,15 @@ export function SummaryView({
     [loadedLog.profile.soqlExecutions]
   );
   const dmlExecutions = loadedLog.profile.dmlExecutions ?? [];
+  const insights = loadedLog.profile.insights ?? [];
 
   useEffect(() => {
-    onTopCollapseChange(isSlowestCollapsed && isSoqlCollapsed && isDmlCollapsed);
+    onTopCollapseChange(
+      isInsightsCollapsed && isSoqlCollapsed && isDmlCollapsed
+    );
   }, [
     isDmlCollapsed,
-    isSlowestCollapsed,
+    isInsightsCollapsed,
     isSoqlCollapsed,
     onTopCollapseChange,
   ]);
@@ -106,7 +122,11 @@ export function SummaryView({
         return;
       }
 
-      if (activeResizeRef.current === 'side' && sidePanelRef.current) {
+      if (activeResizeRef.current === 'sideRows') {
+        if (!sidePanelRef.current) {
+          return;
+        }
+
         const rect = sidePanelRef.current.getBoundingClientRect();
         const maxSoqlHeight = Math.max(
           MIN_SOQL_SECTION_HEIGHT,
@@ -141,10 +161,38 @@ export function SummaryView({
   }
 
   function startSideResize() {
-    activeResizeRef.current = 'side';
+    activeResizeRef.current = 'sideRows';
     document.body.classList.add('is-resizing-summary-panels');
     document.body.classList.add('is-resizing-summary-rows');
     document.body.classList.remove('is-resizing-summary-columns');
+  }
+
+  function toggleInsightsSection() {
+    setIsInsightsCollapsed((collapsed) => !collapsed);
+  }
+
+  function toggleSoqlSection() {
+    setIsSoqlCollapsed((collapsed) => {
+      if (collapsed && !isDmlCollapsed && soqlSectionHeight === undefined) {
+        setSoqlSectionHeight(MIN_SOQL_SECTION_HEIGHT);
+      }
+
+      if (!collapsed) {
+        setSoqlSectionHeight(undefined);
+      }
+
+      return !collapsed;
+    });
+  }
+
+  function toggleDmlSection() {
+    setIsDmlCollapsed((collapsed) => {
+      if (!collapsed) {
+        setSoqlSectionHeight(undefined);
+      }
+
+      return !collapsed;
+    });
   }
 
   const summaryTopGridStyle = {
@@ -159,6 +207,9 @@ export function SummaryView({
       : undefined,
   } as CSSProperties;
 
+  const summaryMainStackClassName = `summary-main-stack${
+    isInsightsCollapsed ? ' summary-main-stack-insights-collapsed' : ''
+  }`;
   const showSideResizer = !isSoqlCollapsed && !isDmlCollapsed;
   const summarySideStackClassName =
     showSideResizer
@@ -173,36 +224,68 @@ export function SummaryView({
 
   return (
     <div className="summary-top-grid" ref={topGridRef} style={summaryTopGridStyle}>
-      <section
-        className={`panel summary-slowest-panel summary-main-section${
-          isSlowestCollapsed ? ' summary-section-collapsed' : ''
-        }`}
-      >
-        <div className="panel-title">
-          <Gauge size={18} aria-hidden="true" />
-          <h3>Slowest Events</h3>
-          <button
-            aria-expanded={!isSlowestCollapsed}
-            aria-label={isSlowestCollapsed ? 'Expand Slowest Events' : 'Collapse Slowest Events'}
-            className="panel-collapse-toggle"
-            onClick={() => setIsSlowestCollapsed((collapsed) => !collapsed)}
-            type="button"
-          >
-            {isSlowestCollapsed ? (
-              <ChevronRight size={16} aria-hidden="true" />
-            ) : (
-              <ChevronDown size={16} aria-hidden="true" />
-            )}
-          </button>
-        </div>
-        {!isSlowestCollapsed && (
-          <EventList
-            entries={slowestEntries}
-            onSelectTimelineEntry={onSelectTimelineEntry}
-            selectedEntryId={selectedEntryId}
-          />
-        )}
-      </section>
+      <div className={summaryMainStackClassName}>
+        <section
+          className={`panel summary-insights-panel summary-main-section${
+            isInsightsCollapsed ? ' summary-section-collapsed' : ''
+          }`}
+        >
+          <div className="panel-title">
+            <Lightbulb size={18} aria-hidden="true" />
+            <button
+              className={`summary-section-link${isInsightsCollapsed ? ' summary-section-link-collapsed' : ''}`}
+              onClick={() => onOpenInsights()}
+              type="button"
+            >
+              Insights ({insights.length})
+            </button>
+            <button
+              aria-expanded={!isInsightsCollapsed}
+              aria-label={isInsightsCollapsed ? 'Expand Insights' : 'Collapse Insights'}
+              className="panel-collapse-toggle"
+              onClick={toggleInsightsSection}
+              type="button"
+            >
+              {isInsightsCollapsed ? (
+                <ChevronRight size={16} aria-hidden="true" />
+              ) : (
+                <ChevronDown size={16} aria-hidden="true" />
+              )}
+            </button>
+          </div>
+          {!isInsightsCollapsed && (
+            <div className="summary-insights-body">
+              {insights.length === 0 ? (
+                <p className="muted">No insights found yet.</p>
+              ) : (
+                <ol className="summary-insight-list">
+                  {insights.map((insight) => {
+                    const SeverityIcon = getSummaryInsightSeverityIcon(
+                      insight.severity
+                    );
+
+                    return (
+                      <li
+                        className={`summary-insight-${insight.severity}`}
+                        key={insight.id}
+                      >
+                        <SeverityIcon size={15} aria-hidden="true" />
+                        <button
+                          onClick={() => onOpenInsights(insight.id)}
+                          type="button"
+                        >
+                          <strong>{insight.title}</strong>
+                          <span>{insight.summary}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
 
       <button
         aria-label="Resize summary columns"
@@ -234,7 +317,7 @@ export function SummaryView({
               aria-expanded={!isSoqlCollapsed}
               aria-label={isSoqlCollapsed ? 'Expand SOQL Queries' : 'Collapse SOQL Queries'}
               className="panel-collapse-toggle"
-              onClick={() => setIsSoqlCollapsed((collapsed) => !collapsed)}
+              onClick={toggleSoqlSection}
               type="button"
             >
               {isSoqlCollapsed ? (
@@ -280,7 +363,7 @@ export function SummaryView({
               aria-expanded={!isDmlCollapsed}
               aria-label={isDmlCollapsed ? 'Expand DML Executions' : 'Collapse DML Executions'}
               className="panel-collapse-toggle"
-              onClick={() => setIsDmlCollapsed((collapsed) => !collapsed)}
+              onClick={toggleDmlSection}
               type="button"
             >
               {isDmlCollapsed ? (
@@ -303,19 +386,20 @@ export function SummaryView({
   );
 }
 
-function findSlowestEntries(profile: ApexLogProfile): ApexLogEntry[] {
-  const rootIdSet = new Set(profile.rootIds);
+function getSummaryInsightSeverityIcon(
+  severity: ProfileInsightSeverity
+): LucideIcon {
+  if (severity === 'info') {
+    return Info;
+  }
 
-  return profile.entries
-    .filter(
-      (entry): entry is ApexLogEntry =>
-        Boolean(entry?.duration) &&
-        !(
-          (entry.parentId === undefined ||
-            (entry.parentId !== undefined && rootIdSet.has(entry.parentId))) &&
-          (entry.type === 'dml' || entry.type === 'other')
-        )
-    )
-    .sort((left, right) => (right.duration ?? 0) - (left.duration ?? 0))
-    .slice(0, 10);
+  if (severity === 'serious') {
+    return OctagonAlert;
+  }
+
+  if (severity === 'error') {
+    return CircleX;
+  }
+
+  return AlertTriangle;
 }

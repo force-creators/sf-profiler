@@ -1,13 +1,18 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type ChangeEvent,
   type DragEvent,
 } from 'react';
-import { parseApexLog } from '@sfdc-profiler/core';
+import {
+  parseApexLog,
+  type PerformanceInsightThresholds,
+} from '@sfdc-profiler/core';
 import { AppHeader } from './components/app/AppHeader';
 import { EmptyState } from './components/app/EmptyState';
+import { InsightsView } from './components/insights/InsightsView';
 import { LimitsView } from './components/limits/LimitsView';
 import { RawLogView } from './components/rawlog/RawLogView';
 import { AboutView } from './components/about/AboutView';
@@ -22,7 +27,9 @@ import {
   getRecentStoredLogs,
   openStoredLogByHash,
   persistLoadedLog,
+  persistPerformanceThresholds,
   persistTheme,
+  readStoredPerformanceThresholds,
   readStoredLogFromUrl,
   readStoredTheme,
   removeStoredLog,
@@ -40,6 +47,9 @@ export function App() {
   const [loadedLog, setLoadedLog] = useState<LoadedLog>();
   const [activeView, setActiveView] = useState<ViewId>('summary');
   const [theme, setTheme] = useState<AppTheme>('light');
+  const [performanceThresholds, setPerformanceThresholds] =
+    useState<PerformanceInsightThresholds>(() => readStoredPerformanceThresholds());
+  const performanceThresholdsRef = useRef(performanceThresholds);
   const [isDropTargetActive, setIsDropTargetActive] = useState(false);
   const [isRestoringLog, setIsRestoringLog] = useState(true);
   const [selectedTimelineEntryId, setSelectedTimelineEntryId] =
@@ -48,14 +58,19 @@ export function App() {
   const [limitsJumpRequest, setLimitsJumpRequest] = useState<
     { section: LimitsSectionId; nonce: number } | undefined
   >();
+  const [insightJumpRequest, setInsightJumpRequest] = useState<
+    { insightId: string; nonce: number } | undefined
+  >();
   const [rawLogJumpRequest, setRawLogJumpRequest] = useState<
     { lineNumber: number; nonce: number } | undefined
   >();
   const [recentLogs, setRecentLogs] = useState<RecentStoredLog[]>([]);
   const {
     isSummaryTimelineCollapsed,
+    isSummaryTimelineExpanded,
     setIsSummaryTopCollapsed,
     setIsSummaryTimelineCollapsed,
+    setIsSummaryTimelineExpanded,
     startSummaryResize,
     summaryLayoutClassName,
     summaryLayoutRef,
@@ -67,8 +82,10 @@ export function App() {
     setSelectedTimelineEntryId(undefined);
     setSelectedLimitEntryId(undefined);
     setLimitsJumpRequest(undefined);
+    setInsightJumpRequest(undefined);
     setRawLogJumpRequest(undefined);
-  }, []);
+    setIsSummaryTimelineExpanded(false);
+  }, [setIsSummaryTimelineExpanded]);
 
   const refreshRecentLogs = useCallback(async () => {
     const logs = await getRecentStoredLogs(10);
@@ -85,18 +102,25 @@ export function App() {
           existingLogMatch.storedLog,
           fileName
         );
+        const profile = parseApexLog(reopenedLog.rawText, {
+          sourceName: reopenedLog.fileName,
+          performanceThresholds,
+        });
 
         setLoadedLog({
           fileName: reopenedLog.fileName,
           rawText: reopenedLog.rawText,
-          profile: reopenedLog.profile,
+          profile,
         });
         resetViewSelections();
 
         return;
       }
 
-      const profile = parseApexLog(rawText, { sourceName: fileName });
+      const profile = parseApexLog(rawText, {
+        sourceName: fileName,
+        performanceThresholds,
+      });
       const nextLoadedLog = { fileName, rawText, profile };
 
       setLoadedLog(nextLoadedLog);
@@ -104,7 +128,7 @@ export function App() {
 
       await persistLoadedLog(nextLoadedLog);
     },
-    [resetViewSelections]
+    [performanceThresholds, resetViewSelections]
   );
 
   useEffect(() => {
@@ -112,13 +136,17 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    performanceThresholdsRef.current = performanceThresholds;
+  }, [performanceThresholds]);
+
+  useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
   useEffect(() => {
     document.title = loadedLog?.fileName
-      ? `${loadedLog.fileName} | SFDC Profiler`
-      : 'SFDC Profiler | Salesforce Profiler for Apex Debug Logs';
+      ? `${loadedLog.fileName} | SF Profiler`
+      : 'SF Profiler | Salesforce Debug Log Analyzer';
   }, [loadedLog]);
 
   useEffect(() => {
@@ -134,10 +162,15 @@ export function App() {
       }
 
       if (storedLog) {
+        const profile = parseApexLog(storedLog.rawText, {
+          sourceName: storedLog.fileName,
+          performanceThresholds: performanceThresholdsRef.current,
+        });
+
         setLoadedLog({
           fileName: storedLog.fileName,
           rawText: storedLog.rawText,
-          profile: storedLog.profile,
+          profile,
         });
       } else {
         setLoadedLog(undefined);
@@ -249,6 +282,17 @@ export function App() {
     setActiveView('summary');
   }
 
+  const handleSummaryTimelineCollapseChange = useCallback(
+    (isCollapsed: boolean) => {
+      setIsSummaryTimelineCollapsed(isCollapsed);
+
+      if (isCollapsed) {
+        setIsSummaryTimelineExpanded(false);
+      }
+    },
+    [setIsSummaryTimelineCollapsed, setIsSummaryTimelineExpanded]
+  );
+
   function openLimitsView(entryId?: number) {
     setSelectedLimitEntryId(entryId);
     setLimitsJumpRequest(undefined);
@@ -258,6 +302,13 @@ export function App() {
   function openLimitsSection(section: LimitsSectionId) {
     setLimitsJumpRequest({ section, nonce: Date.now() });
     setActiveView('limits');
+  }
+
+  function openInsightsView(insightId?: string) {
+    setInsightJumpRequest(
+      insightId ? { insightId, nonce: Date.now() } : undefined
+    );
+    setActiveView('insights');
   }
 
   function openRawLogAtLine(lineNumber: number) {
@@ -270,9 +321,30 @@ export function App() {
     persistTheme(nextTheme);
   }
 
+  function handlePerformanceThresholdsChange(
+    nextThresholds: PerformanceInsightThresholds
+  ) {
+    setPerformanceThresholds(nextThresholds);
+    persistPerformanceThresholds(nextThresholds);
+
+    setLoadedLog((currentLog) => {
+      if (!currentLog) {
+        return currentLog;
+      }
+
+      return {
+        ...currentLog,
+        profile: parseApexLog(currentLog.rawText, {
+          sourceName: currentLog.fileName,
+          performanceThresholds: nextThresholds,
+        }),
+      };
+    });
+  }
+
   async function handleClearStorage() {
     const confirmed = window.confirm(
-      "This will clear the profiler's saved logs, theme, and cached browser storage for this site. The page will reload afterward. Continue?"
+      "This will clear the profiler's saved logs, theme, insight settings, and cached browser storage for this site. The page will reload afterward. Continue?"
     );
 
     if (!confirmed) {
@@ -343,13 +415,14 @@ export function App() {
                 <div className="summary-top-region">
                   <SummaryView
                     loadedLog={loadedLog}
+                    onOpenInsights={openInsightsView}
                     onOpenLimitsSection={openLimitsSection}
                     onSelectTimelineEntry={openSummaryTimeline}
                     onTopCollapseChange={setIsSummaryTopCollapsed}
                     selectedEntryId={selectedTimelineEntryId}
                   />
                 </div>
-                {!isSummaryTimelineCollapsed && (
+                {!isSummaryTimelineCollapsed && !isSummaryTimelineExpanded && (
                   <button
                     aria-label="Resize summary sections"
                     className="summary-resizer"
@@ -359,9 +432,11 @@ export function App() {
                 )}
                 <div className="summary-bottom-region">
                   <TimelineView
+                    isExpanded={isSummaryTimelineExpanded}
                     isActive={activeView === 'summary'}
                     onJumpToRawLogLine={openRawLogAtLine}
-                    onCollapseChange={setIsSummaryTimelineCollapsed}
+                    onCollapseChange={handleSummaryTimelineCollapseChange}
+                    onExpandedChange={setIsSummaryTimelineExpanded}
                     onShowInLimits={openLimitsView}
                     profile={loadedLog.profile}
                     selectedEntryId={selectedTimelineEntryId}
@@ -377,6 +452,13 @@ export function App() {
                 selectedEntryId={selectedLimitEntryId}
               />
             )}
+            {activeView === 'insights' && (
+              <InsightsView
+                jumpRequest={insightJumpRequest}
+                onSelectTimelineEntry={openSummaryTimeline}
+                profile={loadedLog.profile}
+              />
+            )}
             {activeView === 'rawLog' && (
               <RawLogView
                 jumpRequest={rawLogJumpRequest}
@@ -386,8 +468,10 @@ export function App() {
             )}
             {activeView === 'settings' && (
               <SettingsView
+                performanceThresholds={performanceThresholds}
                 theme={theme}
                 onClearStorage={handleClearStorage}
+                onPerformanceThresholdsChange={handlePerformanceThresholdsChange}
                 onThemeChange={handleThemeChange}
               />
             )}

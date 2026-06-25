@@ -14,7 +14,7 @@ const systemLimitTypes: LimitType[] = [
 
 export function SystemLimitsSection({ profile }: { profile: ApexLogProfile }) {
   return (
-    <section className="panel limit-domain-section">
+    <section className="panel limit-domain-section" id="limits-section-system">
       <header className="limit-domain-header">
         <h3>System</h3>
       </header>

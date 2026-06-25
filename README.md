@@ -1,13 +1,13 @@
-# SFDC Profiler
+# SF Profiler
 
-A modern rebuild of the Salesforce Apex Log Profiler.
+A modern Salesforce debug log profiler for Apex, Flow, SOQL, DML, and governor limits.
 
 The project is organized so the parser/profiler logic can run in both a hosted
 website and a local desktop app.
 
 ## Workspace
 
-- `packages/core`: framework-free Apex log parser and profiler.
+- `packages/core`: framework-free Salesforce debug log parser and profiler.
 - `apps/web`: Vite + React browser app. Files are parsed locally in the browser.
 - `apps/desktop`: Electron shell for the web app.
 

@@ -10,7 +10,7 @@ const aboutHighlights = [
   {
     icon: Activity,
     label: 'Execution flow',
-    description: 'Nested Apex, workflow, SOQL, and DML activity stay connected.',
+    description: 'Nested Apex, Flow, workflow, SOQL, and DML activity stay connected.',
   },
   {
     icon: Gauge,
@@ -26,17 +26,18 @@ const aboutHighlights = [
 
 export function AboutView() {
   return (
-    <section className="about-layout" aria-label="About SFDC Profiler">
+    <section className="about-layout" aria-label="About SF Profiler">
       <article className="panel about-panel">
         <header className="about-hero">
           <div className="about-mark">
             <img src="./icon.png" alt="" aria-hidden="true" />
           </div>
           <div className="about-hero-copy">
-            <h3>SFDC Profiler</h3>
+            <h3>SF Profiler</h3>
             <p className="muted">
-              Built to make dense Salesforce debug logs easier to reason about
-              without uploading customer, org, or production log data anywhere.
+              Trace Apex, Flow, automation, and database work through dense
+              Salesforce debug logs without sending customer or production data
+              anywhere.
             </p>
           </div>
         </header>
@@ -54,14 +55,29 @@ export function AboutView() {
         </div>
 
         <section className="about-author">
-          <div>
-            <h4>Author</h4>
-            <strong>Matthew Swing-McKenzie</strong>
+          <div className="about-author-heading">
+            <img
+              className="about-author-photo"
+              src="./images/matthew-swing-mckenzie.png"
+              alt="Matthew Swing-McKenzie"
+            />
+            <div>
+              <h4>Author</h4>
+              <strong>Matthew Swing-McKenzie</strong>
+            </div>
           </div>
           <p className="muted">
-            I built this for the kind of log spelunking Salesforce developers do
-            when a transaction is too slow, too chatty, or brushing up against
-            limits.
+            I am a Southern California-based Salesforce architect who started as
+            a .NET engineer and moved into Salesforce more than 10 years ago.
+            Since then, I have worked in some of the largest Salesforce orgs,
+            where milliseconds matter and small automation choices can compound
+            across millions of transactions.
+          </p>
+          <p className="muted">
+            I built the first version of this profiler in 2020 to untangle
+            broken automation and clean up complex automation architecture. This
+            version is a lighter, faster rebuild that runs in the browser
+            without requiring an install.
           </p>
           <SocialLinks />
         </section>

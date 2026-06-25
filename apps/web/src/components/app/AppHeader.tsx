@@ -1,4 +1,11 @@
-import { BarChart3, FileText, Gauge, Info, Settings } from 'lucide-react';
+import {
+  BarChart3,
+  FileText,
+  Gauge,
+  Info,
+  Lightbulb,
+  Settings,
+} from 'lucide-react';
 import { limitTypes } from '@sfdc-profiler/core';
 import type { LoadedLog, ViewId } from '../../types';
 
@@ -29,7 +36,7 @@ export function AppHeader({
           <img
             className="summary-band-icon"
             src="./icon.png"
-            alt="SFDC Profiler"
+            alt="SF Profiler"
           />
         </button>
         <div className="summary-band-heading-copy">
@@ -47,6 +54,14 @@ export function AppHeader({
         >
           <BarChart3 size={16} aria-hidden="true" />
           Summary
+        </button>
+        <button
+          className={activeView === 'insights' ? 'active' : ''}
+          type="button"
+          onClick={() => onViewChange('insights')}
+        >
+          <Lightbulb size={16} aria-hidden="true" />
+          Insights
         </button>
         <button
           className={activeView === 'limits' ? 'active' : ''}
@@ -101,6 +116,10 @@ function getActiveViewTitle(activeView: ViewId): string {
 
   if (activeView === 'limits') {
     return 'Limits';
+  }
+
+  if (activeView === 'insights') {
+    return 'Insights';
   }
 
   if (activeView === 'rawLog') {

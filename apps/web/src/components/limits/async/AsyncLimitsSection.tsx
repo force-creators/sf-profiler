@@ -10,7 +10,7 @@ const asyncLimitTypes: LimitType[] = [limitTypes.queueable, limitTypes.future];
 
 export function AsyncLimitsSection({ profile }: { profile: ApexLogProfile }) {
   return (
-    <section className="panel limit-domain-section">
+    <section className="panel limit-domain-section" id="limits-section-async">
       <header className="limit-domain-header">
         <h3>Async</h3>
       </header>

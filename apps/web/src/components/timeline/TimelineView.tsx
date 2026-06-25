@@ -1,4 +1,12 @@
-import { ChevronDown, ChevronRight, FileText, Rows3, X } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Maximize2,
+  Minimize2,
+  Rows3,
+  X,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DataSet } from 'vis-data';
 import {
@@ -9,20 +17,32 @@ import {
 } from 'vis-timeline/standalone';
 import 'vis-timeline/styles/vis-timeline-graph2d.css';
 import type { ApexLogEntry, ApexLogProfile } from '@sfdc-profiler/core';
-import { getTimedEntries } from './timelineEntries';
+import {
+  getTimelineFlowRole,
+  getTimedEntries,
+  getTimelineGroupIds,
+  isFlowRecordUpdateBulkEntry,
+  type TimelineFlowRole,
+} from './timelineEntries';
 import { formatTimelineContent, formatTimelineTitle } from './timelineFormatting';
-import { timelineGroups } from './timelineGroups';
+import { timelineGroups, type TimelineGroupId } from './timelineGroups';
+
+type TimelineItemId = number | string;
 
 export function TimelineView({
+  isExpanded = false,
   isActive,
   onCollapseChange,
+  onExpandedChange,
   onJumpToRawLogLine,
   onShowInLimits,
   profile,
   selectedEntryId,
 }: {
+  isExpanded?: boolean;
   isActive: boolean;
   onCollapseChange?: (isCollapsed: boolean) => void;
+  onExpandedChange?: (isExpanded: boolean) => void;
   onJumpToRawLogLine: (lineNumber: number) => void;
   onShowInLimits: (entryId: number) => void;
   profile: ApexLogProfile;
@@ -73,26 +93,59 @@ export function TimelineView({
         return;
       }
 
-      const itemById = new Map<number, ApexLogEntry>();
+      const itemById = new Map<TimelineItemId, ApexLogEntry>();
+      const entriesById = new Map(profile.entries.map((entry) => [entry.id, entry]));
       const groups = new DataSet<DataGroup>(
         timelineGroups.filter((group) =>
-          timedEntries.some((entry) => entry.type === group.id)
+          timedEntries.some((entry) => getTimelineGroupIds(entry).includes(group.id))
         )
       );
       const items = new DataSet<DataItem>(
-        timedEntries.map((entry) => {
+        timedEntries.flatMap((entry) => {
           itemById.set(entry.id, entry);
+          const flowRole = getTimelineFlowRole(entry, entriesById);
 
-          return {
+          const primaryItem = {
             id: entry.id,
-            className: `timeline-item-${entry.type}`,
+            className: getTimelineItemClassName(entry, entriesById, entry.type, flowRole),
             content: formatTimelineContent(entry),
             end: entry.endTime,
             group: entry.type,
             start: entry.time,
-            title: formatTimelineTitle(entry),
+            title: formatTimelineTitle(entry, {
+              entriesById,
+              includeFlowPath: true,
+            }),
             type: 'range',
           };
+
+          if (!isFlowRecordUpdateBulkEntry(entry)) {
+            return [primaryItem];
+          }
+
+          const flowDmlItemId = `flow-dml-${entry.id}`;
+          itemById.set(flowDmlItemId, entry);
+
+          return [
+            primaryItem,
+            {
+              id: flowDmlItemId,
+              className: getTimelineItemClassName(entry, entriesById, 'dml'),
+              content: formatTimelineContent(entry, {
+                entriesById,
+                flowDmlCopy: true,
+              }),
+              end: entry.endTime,
+              group: 'dml',
+              start: entry.time,
+              title: formatTimelineTitle(entry, {
+                entriesById,
+                flowDmlCopy: true,
+                includeFlowPath: true,
+              }),
+              type: 'range',
+            },
+          ];
         })
       );
       const options: TimelineOptions = {
@@ -130,9 +183,12 @@ export function TimelineView({
       };
 
       timeline = new Timeline(containerRef.current, items, groups, options);
-      timeline.on('select', ({ items: selectedItems }: { items: number[] }) => {
+      timeline.on(
+        'select',
+        ({ items: selectedItems }: { items: TimelineItemId[] }) => {
         setSelectedEntry(itemById.get(selectedItems[0]));
-      });
+        }
+      );
       timelineRef.current = timeline;
       timeline.fit({ animation: false });
       setRenderedTimelineProfile(profile);
@@ -185,7 +241,7 @@ export function TimelineView({
     return () => {
       window.cancelAnimationFrame(frameId);
     };
-  }, [isActive, isTimelineCollapsed, refreshTimelineView]);
+  }, [isActive, isExpanded, isTimelineCollapsed, refreshTimelineView]);
 
   useEffect(() => {
     if (!isActive || isTimelineCollapsed || isTimelineRenderPending) {
@@ -315,19 +371,48 @@ export function TimelineView({
         <div className="panel-title">
           <Rows3 size={18} aria-hidden="true" />
           <h3>Timeline</h3>
-          <button
-            aria-expanded={!isTimelineCollapsed}
-            aria-label={isTimelineCollapsed ? 'Expand Timeline' : 'Collapse Timeline'}
-            className="panel-collapse-toggle"
-            onClick={() => setIsTimelineCollapsed((collapsed) => !collapsed)}
-            type="button"
-          >
-            {isTimelineCollapsed ? (
-              <ChevronRight size={16} aria-hidden="true" />
-            ) : (
-              <ChevronDown size={16} aria-hidden="true" />
+          <div className="timeline-panel-actions">
+            {!isTimelineCollapsed && onExpandedChange && (
+              <button
+                aria-label={
+                  isExpanded
+                    ? 'Restore Summary Panels'
+                    : 'Expand Timeline to top of Summary'
+                }
+                aria-pressed={isExpanded}
+                className="panel-collapse-toggle"
+                onClick={() => onExpandedChange(!isExpanded)}
+                title={
+                  isExpanded
+                    ? 'Restore summary panels'
+                    : 'Expand timeline to top of summary'
+                }
+                type="button"
+              >
+                {isExpanded ? (
+                  <Minimize2 size={16} aria-hidden="true" />
+                ) : (
+                  <Maximize2 size={16} aria-hidden="true" />
+                )}
+              </button>
             )}
-          </button>
+            <button
+              aria-expanded={!isTimelineCollapsed}
+              aria-label={
+                isTimelineCollapsed ? 'Expand Timeline' : 'Collapse Timeline'
+              }
+              className="panel-collapse-toggle"
+              onClick={() => setIsTimelineCollapsed((collapsed) => !collapsed)}
+              title={isTimelineCollapsed ? 'Expand timeline' : 'Collapse timeline'}
+              type="button"
+            >
+              {isTimelineCollapsed ? (
+                <ChevronRight size={16} aria-hidden="true" />
+              ) : (
+                <ChevronDown size={16} aria-hidden="true" />
+              )}
+            </button>
+          </div>
         </div>
         <div
           className={`timeline-stage-frame${
@@ -412,4 +497,61 @@ export function TimelineView({
       )}
     </div>
   );
+}
+
+function getTimelineItemClassName(
+  entry: ApexLogEntry,
+  entriesById: Map<number, ApexLogEntry>,
+  groupId: TimelineGroupId,
+  flowRole?: TimelineFlowRole
+): string {
+  const classNames = [`timeline-item-${groupId}`];
+  const nestingDepth = getTimelineNestingDepth(entry, entriesById, groupId);
+
+  if (nestingDepth > 0) {
+    classNames.push(
+      'timeline-lane-nested',
+      `timeline-lane-depth-${Math.min(nestingDepth, 3)}`
+    );
+  }
+
+  if (flowRole) {
+    classNames.push(
+      `timeline-flow-${flowRole.kind}`,
+      `timeline-depth-${Math.min(flowRole.depth, 3)}`
+    );
+
+    if (flowRole.isInvoked) {
+      classNames.push('timeline-flow-invoked');
+    }
+  }
+
+  return classNames.join(' ');
+}
+
+function getTimelineNestingDepth(
+  entry: ApexLogEntry,
+  entriesById: Map<number, ApexLogEntry>,
+  groupId: TimelineGroupId
+): number {
+  if (groupId === 'workflow') {
+    return 0;
+  }
+
+  let depth = 0;
+  let current =
+    entry.parentId === undefined ? undefined : entriesById.get(entry.parentId);
+
+  while (current) {
+    if (current.type === groupId) {
+      depth += 1;
+    } else if (groupId === 'dml' && current.type === 'workflow') {
+      depth += 1;
+    }
+
+    current =
+      current.parentId === undefined ? undefined : entriesById.get(current.parentId);
+  }
+
+  return depth;
 }

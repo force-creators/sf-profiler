@@ -68,7 +68,7 @@ async function createWindow(initialLogPath?: string) {
     height: 900,
     minWidth: 960,
     minHeight: 640,
-    title: 'SFDC Profiler',
+    title: 'SF Profiler',
     icon: iconPath,
     webPreferences: {
       sandbox: true,
@@ -288,9 +288,9 @@ async function maybePromptForLogAssociation() {
     defaultId: 1,
     cancelId: 0,
     checkboxLabel: "Don't ask again",
-    message: 'Open .log files in SFDC Profiler?',
+    message: 'Open .log files in SF Profiler?',
     detail:
-      'Set SFDC Profiler as the recommended app for .log files so double-clicking a log opens it directly here.',
+      'Set SF Profiler as the recommended app for .log files so double-clicking a log opens it directly here.',
   };
   const mainWindowForDialog = getMainWindowForDialog();
   const response = mainWindowForDialog
@@ -310,10 +310,10 @@ async function maybePromptForLogAssociation() {
 
   const platformSteps =
     process.platform === 'darwin'
-      ? 'Finder: right-click a .log file -> Get Info -> Open with: SFDC Profiler -> Change All...'
+      ? 'Finder: right-click a .log file -> Get Info -> Open with: SF Profiler -> Change All...'
       : process.platform === 'win32'
-        ? 'Windows: right-click a .log file -> Open with -> Choose another app -> SFDC Profiler -> Always use this app'
-        : 'Linux: right-click a .log file -> Properties -> Open With -> SFDC Profiler -> Set as default';
+        ? 'Windows: right-click a .log file -> Open with -> Choose another app -> SF Profiler -> Always use this app'
+        : 'Linux: right-click a .log file -> Properties -> Open With -> SF Profiler -> Set as default';
 
   const setupOptions: MessageBoxOptions = {
     type: 'info',

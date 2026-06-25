@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SFDC Profiler | Salesforce Profiler for Apex Debug Logs</title>
+    <title>SF Profiler | Salesforce Debug Log Analyzer</title>
     <meta
       name="description"
-      content="SFDC Profiler is a fast Salesforce profiler for Apex debug logs. Analyze execution time, SOQL, DML, and governor limits with on-device processing so your logs stay in your browser."
+      content="Analyze Salesforce debug logs for Apex, Flow, SOQL, DML, CPU time, and governor limits locally in your browser with SF Profiler."
     />
     <meta
       name="keywords"
-      content="Salesforce Profiler, SFDC Profiler, Apex debug log analyzer, Salesforce log profiler, governor limits analysis, SOQL profiler, DML profiler"
+      content="Salesforce debug log analyzer, Salesforce Profiler, SF Profiler, Apex log analyzer, Flow profiler, Salesforce Flow debugging, governor limits analysis, SOQL profiler, DML profiler"
     />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="googlebot" content="index, follow" />
@@ -18,19 +18,19 @@
 
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://sfprofiler.com/" />
-    <meta property="og:site_name" content="SFDC Profiler" />
-    <meta property="og:title" content="SFDC Profiler | Salesforce Profiler for Apex Debug Logs" />
+    <meta property="og:site_name" content="SF Profiler" />
+    <meta property="og:title" content="SF Profiler | Salesforce Debug Log Analyzer" />
     <meta
       property="og:description"
-      content="Profile Apex debug logs in seconds. SFDC Profiler runs in your browser and processes logs on-device for speed and privacy."
+      content="Profile Salesforce debug logs in seconds. Trace Apex, Flow, SOQL, DML, CPU time, and governor limits with on-device processing."
     />
     <meta property="og:image" content="https://sfprofiler.com/icon.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="SFDC Profiler | Salesforce Profiler for Apex Debug Logs" />
+    <meta name="twitter:title" content="SF Profiler | Salesforce Debug Log Analyzer" />
     <meta
       name="twitter:description"
-      content="An effective Salesforce profiler that analyzes Apex logs locally in your browser."
+      content="Analyze Salesforce debug logs for Apex, Flow, SOQL, DML, CPU time, and governor limits locally in your browser."
     />
     <meta name="twitter:image" content="https://sfprofiler.com/icon.png" />
 
@@ -40,71 +40,22 @@
       {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
-        "name": "SFDC Profiler",
+        "name": "SF Profiler",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Web",
         "url": "https://sfprofiler.com/",
-        "description": "SFDC Profiler is an effective Salesforce profiler for Apex debug logs with on-device processing.",
+        "description": "SF Profiler analyzes Salesforce debug logs for Apex, Flow, SOQL, DML, CPU time, and governor limits with on-device processing.",
         "offers": {
           "@type": "Offer",
           "price": "0",
           "priceCurrency": "USD"
         },
-        "keywords": "Salesforce Profiler, Apex debug log analyzer, governor limits"
+        "keywords": "Salesforce debug log analyzer, Salesforce Profiler, Apex log analyzer, Flow profiler, Salesforce Flow debugging, governor limits"
       }
     </script>
   </head>
   <body>
     <div id="root"></div>
-    <script
-      data-name="BMC-Widget"
-      data-cfasync="false"
-      src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js"
-      data-id="mjsmckenzie"
-      data-description="Support me on Buy me a coffee!"
-      data-message="Buy my kids a cake pop!"
-      data-color="#5F7FFF"
-      data-position="left"
-      data-x_margin="10"
-      data-y_margin="10"
-    ></script>
-    <script>
-      (() => {
-        const cupcakeIcon = `data:image/svg+xml,${encodeURIComponent(
-          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" font-size="42">🧁</text></svg>'
-        )}`;
-
-        function swapBuyMeACoffeeIcon() {
-          const image = document.querySelector('#bmc-wbtn img');
-
-          if (!image) {
-            return false;
-          }
-
-          if (image.src === cupcakeIcon) {
-            return true;
-          }
-
-          image.src = cupcakeIcon;
-          image.alt = 'Cupcake';
-
-          return true;
-        }
-
-        swapBuyMeACoffeeIcon();
-
-        const observer = new MutationObserver(() => {
-          swapBuyMeACoffeeIcon();
-        });
-
-        observer.observe(document.body, {
-          attributes: true,
-          attributeFilter: ['src'],
-          childList: true,
-          subtree: true,
-        });
-      })();
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
