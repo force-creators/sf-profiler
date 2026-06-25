@@ -284,6 +284,14 @@ a:focus-visible {
   gap: 10px;
 }
 
+.summary-layout-top-collapsed {
+  grid-template-rows: auto 7px minmax(320px, 1fr);
+}
+
+.summary-layout-top-collapsed.summary-layout-timeline-collapsed {
+  grid-template-rows: auto auto;
+}
+
 .summary-top-region,
 .summary-bottom-region {
   min-height: 0;
@@ -408,8 +416,8 @@ body.is-resizing-summary-rows {
 }
 
 .summary-side-stack {
-  grid-template-rows: minmax(170px, var(--summary-soql-height, 1fr)) 7px minmax(
-      170px,
+  grid-template-rows: minmax(0, var(--summary-soql-height, 1fr)) 7px minmax(
+      0,
       1fr
     );
   gap: 0;
@@ -417,13 +425,13 @@ body.is-resizing-summary-rows {
 }
 
 .summary-side-stack-soql-collapsed {
-  grid-template-rows: auto minmax(170px, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
   align-content: start;
 }
 
 .summary-side-stack-dml-collapsed {
-  grid-template-rows: minmax(170px, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 10px;
   align-content: start;
 }
@@ -448,6 +456,7 @@ body.is-resizing-summary-rows {
 .summary-list-section .dml-execution-list {
   max-height: none;
   height: 100%;
+  min-height: 0;
 }
 
 .limits-layout {

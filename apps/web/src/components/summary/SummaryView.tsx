@@ -16,11 +16,13 @@ const MIN_DML_SECTION_HEIGHT = 170;
 export function SummaryView({
   loadedLog,
   onOpenLimitsSection,
+  onTopCollapseChange,
   onSelectTimelineEntry,
   selectedEntryId,
 }: {
   loadedLog: LoadedLog;
   onOpenLimitsSection: (section: 'soql' | 'dml') => void;
+  onTopCollapseChange: (isCollapsed: boolean) => void;
   onSelectTimelineEntry: (entryId: number) => void;
   selectedEntryId?: number;
 }) {
@@ -62,6 +64,15 @@ export function SummaryView({
     [loadedLog.profile.soqlExecutions]
   );
   const dmlExecutions = loadedLog.profile.dmlExecutions ?? [];
+
+  useEffect(() => {
+    onTopCollapseChange(isSlowestCollapsed && isSoqlCollapsed && isDmlCollapsed);
+  }, [
+    isDmlCollapsed,
+    isSlowestCollapsed,
+    isSoqlCollapsed,
+    onTopCollapseChange,
+  ]);
 
   useEffect(() => {
     function stopResize() {

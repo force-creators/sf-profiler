@@ -13,6 +13,7 @@ export function useSummaryPaneResize() {
   const [summaryTopHeight, setSummaryTopHeight] = useState<number>();
   const [isSummaryTimelineCollapsed, setIsSummaryTimelineCollapsed] =
     useState(false);
+  const [isSummaryTopCollapsed, setIsSummaryTopCollapsed] = useState(false);
   const summaryLayoutRef = useRef<HTMLDivElement | null>(null);
   const isResizingSummaryRef = useRef(false);
 
@@ -63,12 +64,17 @@ export function useSummaryPaneResize() {
     '--summary-top-height':
       summaryTopHeight !== undefined ? `${summaryTopHeight}px` : undefined,
   } as CSSProperties;
-  const summaryLayoutClassName = isSummaryTimelineCollapsed
-    ? 'summary-layout summary-layout-timeline-collapsed'
-    : 'summary-layout';
+  const summaryLayoutClassName = [
+    'summary-layout',
+    isSummaryTimelineCollapsed ? 'summary-layout-timeline-collapsed' : '',
+    isSummaryTopCollapsed ? 'summary-layout-top-collapsed' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return {
     isSummaryTimelineCollapsed,
+    setIsSummaryTopCollapsed,
     setIsSummaryTimelineCollapsed,
     startSummaryResize,
     summaryLayoutClassName,

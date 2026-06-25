@@ -54,6 +54,7 @@ export function App() {
   const [recentLogs, setRecentLogs] = useState<RecentStoredLog[]>([]);
   const {
     isSummaryTimelineCollapsed,
+    setIsSummaryTopCollapsed,
     setIsSummaryTimelineCollapsed,
     startSummaryResize,
     summaryLayoutClassName,
@@ -344,6 +345,7 @@ export function App() {
                     loadedLog={loadedLog}
                     onOpenLimitsSection={openLimitsSection}
                     onSelectTimelineEntry={openSummaryTimeline}
+                    onTopCollapseChange={setIsSummaryTopCollapsed}
                     selectedEntryId={selectedTimelineEntryId}
                   />
                 </div>
