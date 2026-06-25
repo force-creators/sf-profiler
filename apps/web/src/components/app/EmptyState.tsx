@@ -85,6 +85,9 @@ export function EmptyState({
           All log processing happens on your device; no log data is sent to or stored on external servers.
         </p>
       )}
+      <p className="empty-state-copyright">
+        Copyright 2026 Matthew Swing-McKenzie &amp; Force Creators
+      </p>
     </div>
   );
 }

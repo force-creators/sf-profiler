@@ -1188,8 +1188,9 @@ body.is-resizing-summary-rows {
   display: grid;
   place-items: center;
   align-content: center;
+  position: relative;
   min-height: calc(100vh - 48px);
-  padding: 24px;
+  padding: 24px 24px 42px;
   text-align: center;
   border: 2px dashed transparent;
   border-radius: 16px;
@@ -1255,6 +1256,18 @@ body.is-resizing-summary-rows {
 .empty-state-with-recents p.empty-state-privacy-note {
   grid-column: 1 / -1;
   justify-self: center;
+}
+
+.empty-state p.empty-state-copyright {
+  position: absolute;
+  right: 24px;
+  bottom: 8px;
+  left: 24px;
+  max-width: none;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
 }
 
 .empty-state-dragging {

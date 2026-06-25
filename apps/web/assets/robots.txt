@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://sfdcprofiler.com/sitemap.xml
+Sitemap: https://sfprofiler.com/sitemap.xml
