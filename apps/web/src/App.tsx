@@ -58,6 +58,9 @@ export function App() {
   const [limitsJumpRequest, setLimitsJumpRequest] = useState<
     { section: LimitsSectionId; nonce: number } | undefined
   >();
+  const [insightJumpRequest, setInsightJumpRequest] = useState<
+    { insightId: string; nonce: number } | undefined
+  >();
   const [rawLogJumpRequest, setRawLogJumpRequest] = useState<
     { lineNumber: number; nonce: number } | undefined
   >();
@@ -79,6 +82,7 @@ export function App() {
     setSelectedTimelineEntryId(undefined);
     setSelectedLimitEntryId(undefined);
     setLimitsJumpRequest(undefined);
+    setInsightJumpRequest(undefined);
     setRawLogJumpRequest(undefined);
     setIsSummaryTimelineExpanded(false);
   }, [setIsSummaryTimelineExpanded]);
@@ -300,7 +304,10 @@ export function App() {
     setActiveView('limits');
   }
 
-  function openInsightsView() {
+  function openInsightsView(insightId?: string) {
+    setInsightJumpRequest(
+      insightId ? { insightId, nonce: Date.now() } : undefined
+    );
     setActiveView('insights');
   }
 
@@ -447,6 +454,7 @@ export function App() {
             )}
             {activeView === 'insights' && (
               <InsightsView
+                jumpRequest={insightJumpRequest}
                 onSelectTimelineEntry={openSummaryTimeline}
                 profile={loadedLog.profile}
               />

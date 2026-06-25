@@ -56,20 +56,20 @@ export function AppHeader({
           Summary
         </button>
         <button
-          className={activeView === 'limits' ? 'active' : ''}
-          type="button"
-          onClick={() => onViewChange('limits')}
-        >
-          <Gauge size={16} aria-hidden="true" />
-          Limits
-        </button>
-        <button
           className={activeView === 'insights' ? 'active' : ''}
           type="button"
           onClick={() => onViewChange('insights')}
         >
           <Lightbulb size={16} aria-hidden="true" />
           Insights
+        </button>
+        <button
+          className={activeView === 'limits' ? 'active' : ''}
+          type="button"
+          onClick={() => onViewChange('limits')}
+        >
+          <Gauge size={16} aria-hidden="true" />
+          Limits
         </button>
         <button
           className={activeView === 'rawLog' ? 'active' : ''}

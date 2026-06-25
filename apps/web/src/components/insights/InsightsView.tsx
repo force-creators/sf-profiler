@@ -3,7 +3,7 @@ import {
   AlertTriangle,
   ArrowRight,
   ChevronDown,
-  ChevronUp,
+  ChevronRight,
   CircleDot,
   GitBranch,
   Lightbulb,
@@ -33,9 +33,11 @@ const insightTabs: InsightTab[] = [
 ];
 
 export function InsightsView({
+  jumpRequest,
   onSelectTimelineEntry,
   profile,
 }: {
+  jumpRequest?: { insightId: string; nonce: number };
   onSelectTimelineEntry: (entryId: number) => void;
   profile: ApexLogProfile;
 }) {
@@ -69,6 +71,23 @@ export function InsightsView({
   useEffect(() => {
     setExpandedInsightIds(new Set());
   }, [profile]);
+
+  useEffect(() => {
+    if (!jumpRequest) {
+      return;
+    }
+
+    const targetInsight = insights.find(
+      (insight) => insight.id === jumpRequest.insightId
+    );
+
+    if (!targetInsight) {
+      return;
+    }
+
+    setActiveInsightKind(targetInsight.kind);
+    setExpandedInsightIds(new Set([targetInsight.id]));
+  }, [insights, jumpRequest]);
 
   function toggleInsightExpanded(insightId: string) {
     setExpandedInsightIds((currentIds) => {
@@ -203,43 +222,39 @@ function InsightCard({
     <section
       className={`panel insight-card${isExpanded ? '' : ' insight-card-collapsed'}`}
     >
-      <header className="insight-card-header">
+      <header
+        className="insight-card-header"
+        onClick={onToggleExpanded}
+        title={isExpanded ? 'Collapse details' : 'Expand details'}
+      >
+        <button
+          aria-controls={getInsightDetailsId(insight.id)}
+          aria-expanded={isExpanded}
+          aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${insight.title}`}
+          className="insight-expand-button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleExpanded();
+          }}
+          title={isExpanded ? 'Collapse details' : 'Expand details'}
+          type="button"
+        >
+          {isExpanded ? (
+            <ChevronDown size={18} aria-hidden="true" />
+          ) : (
+            <ChevronRight size={18} aria-hidden="true" />
+          )}
+        </button>
         <div className="insight-title-group">
-          <span
-            className={`insight-severity insight-severity-${insight.severity}`}
-          >
-            <AlertTriangle size={16} aria-hidden="true" />
-            {insight.severity}
-          </span>
           <h3>{insight.title}</h3>
           <p>{insight.summary}</p>
         </div>
-        <div className="insight-card-actions">
-          {insight.entryIds[0] !== undefined && (
-            <button
-              className="insight-entry-button"
-              onClick={() => onSelectTimelineEntry(insight.entryIds[0])}
-              type="button"
-            >
-              <GitBranch size={16} aria-hidden="true" />
-              Show context
-            </button>
-          )}
-          <button
-            aria-controls={getInsightDetailsId(insight.id)}
-            aria-expanded={isExpanded}
-            className="insight-toggle-button"
-            onClick={onToggleExpanded}
-            type="button"
-          >
-            {isExpanded ? (
-              <ChevronUp size={16} aria-hidden="true" />
-            ) : (
-              <ChevronDown size={16} aria-hidden="true" />
-            )}
-            {isExpanded ? 'Hide details' : 'Show details'}
-          </button>
-        </div>
+        <span
+          className={`insight-severity insight-severity-${insight.severity}`}
+        >
+          <AlertTriangle size={16} aria-hidden="true" />
+          {insight.severity}
+        </span>
       </header>
 
       {isExpanded && (
@@ -310,7 +325,9 @@ function RecursionInsightDetails({
     <div className="recursion-insight">
       <section className="recursion-loop-panel">
         <div className="recursion-loop-heading">
-          <span className="recursion-loop-icon">
+          <span
+            className="recursion-loop-icon"
+          >
             <Repeat2 size={18} aria-hidden="true" />
           </span>
           <div>
@@ -520,23 +537,62 @@ function EntryButtonList({
   if (entries.length === 0) {
     return <p className="muted">{fallback}</p>;
   }
+  const entryGroups = groupEntriesByLabel(entries);
 
   return (
     <ol className={`insight-entry-list${className ? ` ${className}` : ''}`}>
-      {entries.map((entry) => (
-        <li key={entry.id}>
+      {entryGroups.map((group) => (
+        <li key={group.entries[0].id}>
           <button
             className="insight-entry-button"
-            onClick={() => onSelectTimelineEntry(entry.id)}
+            onClick={() => onSelectTimelineEntry(group.entries[0].id)}
             type="button"
           >
-            <span>{getEntryLabel(entry)}</span>
-            <small>Line {entry.lineNumber}</small>
+            <span>{group.label}</span>
+            <small>{formatEntryGroupLineLabel(group.entries)}</small>
           </button>
         </li>
       ))}
     </ol>
   );
+}
+
+function groupEntriesByLabel(entries: ApexLogEntry[]): {
+  entries: ApexLogEntry[];
+  label: string;
+}[] {
+  const groups = new Map<string, { entries: ApexLogEntry[]; label: string }>();
+
+  entries.forEach((entry) => {
+    const label = getEntryLabel(entry);
+    const key = `${entry.type}:${label}`;
+    const group = groups.get(key);
+
+    if (group) {
+      group.entries.push(entry);
+      return;
+    }
+
+    groups.set(key, { entries: [entry], label });
+  });
+
+  return Array.from(groups.values());
+}
+
+function formatEntryGroupLineLabel(entries: ApexLogEntry[]): string {
+  if (entries.length === 1) {
+    return `Line ${entries[0].lineNumber}`;
+  }
+
+  const lineNumbers = entries.map((entry) => entry.lineNumber);
+  const visibleLineNumbers = lineNumbers.slice(0, 3).join(', ');
+  const overflowCount = lineNumbers.length - 3;
+  const lineLabel =
+    overflowCount > 0
+      ? `Lines ${visibleLineNumbers} +${overflowCount}`
+      : `Lines ${visibleLineNumbers}`;
+
+  return `${entries.length} occurrences - ${lineLabel}`;
 }
 
 function getEntryLabel(entry: ApexLogEntry): string {

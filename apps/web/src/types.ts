@@ -19,7 +19,7 @@ export type RecentStoredLog = {
 
 export type AppTheme = 'light' | 'dark';
 
-export type LimitsSectionId = 'soql' | 'dml';
+export type LimitsSectionId = 'soql' | 'dml' | 'async' | 'system';
 
 export type ViewId =
   | 'summary'

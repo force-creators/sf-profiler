@@ -32,7 +32,7 @@ export function SummaryView({
   selectedEntryId,
 }: {
   loadedLog: LoadedLog;
-  onOpenInsights: () => void;
+  onOpenInsights: (insightId?: string) => void;
   onOpenLimitsSection: (section: 'soql' | 'dml') => void;
   onTopCollapseChange: (isCollapsed: boolean) => void;
   onSelectTimelineEntry: (entryId: number) => void;
@@ -234,7 +234,7 @@ export function SummaryView({
             <Lightbulb size={18} aria-hidden="true" />
             <button
               className={`summary-section-link${isInsightsCollapsed ? ' summary-section-link-collapsed' : ''}`}
-              onClick={onOpenInsights}
+              onClick={() => onOpenInsights()}
               type="button"
             >
               Insights ({insights.length})
@@ -270,7 +270,10 @@ export function SummaryView({
                         key={insight.id}
                       >
                         <SeverityIcon size={15} aria-hidden="true" />
-                        <button onClick={onOpenInsights} type="button">
+                        <button
+                          onClick={() => onOpenInsights(insight.id)}
+                          type="button"
+                        >
                           <strong>{insight.title}</strong>
                           <span>{insight.summary}</span>
                         </button>
