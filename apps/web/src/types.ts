@@ -21,4 +21,10 @@ export type AppTheme = 'light' | 'dark';
 
 export type LimitsSectionId = 'soql' | 'dml';
 
-export type ViewId = 'summary' | 'limits' | 'rawLog' | 'settings' | 'about';
+export type ViewId =
+  | 'summary'
+  | 'limits'
+  | 'insights'
+  | 'rawLog'
+  | 'settings'
+  | 'about';

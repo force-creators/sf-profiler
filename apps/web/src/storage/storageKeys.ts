@@ -6,3 +6,5 @@ export const storedLogStoreName = 'stored-logs';
 export const storedLogDbVersion = 1;
 export const urlLogParam = 'log';
 export const themeStorageKey = 'sfdc-profiler:theme';
+export const performanceThresholdsStorageKey =
+  'sfdc-profiler:performance-thresholds';

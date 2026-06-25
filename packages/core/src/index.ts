@@ -1,6 +1,7 @@
 export { limitTypes } from './limits';
 export type { LimitDetail, LimitType } from './limits';
 export { parseApexLog, shouldProcess } from './parser';
+export { defaultPerformanceInsightThresholds } from './parserInsights';
 export type {
   ApexLogEntry,
   ApexLogProfile,
@@ -8,4 +9,13 @@ export type {
   SoqlExecution,
   LogEntryType,
   ParseApexLogOptions,
+  PerformanceInsightCategory,
+  PerformanceInsightEvidence,
+  PerformanceInsightThresholds,
+  ProfileInsight,
+  ProfileInsightEvidence,
+  ProfileInsightKind,
+  ProfileInsightSeverity,
+  DuplicateSoqlInsightEvidence,
+  RecursionInsightEvidence,
 } from './types';

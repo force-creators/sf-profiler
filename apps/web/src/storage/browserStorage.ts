@@ -1,6 +1,11 @@
+import {
+  defaultPerformanceInsightThresholds,
+  type PerformanceInsightThresholds,
+} from '@sfdc-profiler/core';
 import type { AppTheme } from '../types';
 import { deleteStoredLogDatabase } from './indexedDbLogs';
 import {
+  performanceThresholdsStorageKey,
   storedLogPrefix,
   storedRawPrefix,
   themeStorageKey,
@@ -35,6 +40,37 @@ export function persistTheme(theme: AppTheme) {
   }
 }
 
+export function readStoredPerformanceThresholds(): PerformanceInsightThresholds {
+  try {
+    const storedThresholds = window.localStorage.getItem(
+      performanceThresholdsStorageKey
+    );
+
+    if (!storedThresholds) {
+      persistPerformanceThresholds(defaultPerformanceInsightThresholds);
+      return defaultPerformanceInsightThresholds;
+    }
+
+    return normalizePerformanceThresholds(JSON.parse(storedThresholds));
+  } catch (error) {
+    console.warn('Unable to restore performance insight thresholds', error);
+    return defaultPerformanceInsightThresholds;
+  }
+}
+
+export function persistPerformanceThresholds(
+  thresholds: PerformanceInsightThresholds
+) {
+  try {
+    window.localStorage.setItem(
+      performanceThresholdsStorageKey,
+      JSON.stringify(normalizePerformanceThresholds(thresholds))
+    );
+  } catch (error) {
+    console.warn('Unable to persist performance insight thresholds', error);
+  }
+}
+
 export async function getBrowserStorageEstimate(): Promise<BrowserStorageEstimate> {
   try {
     const estimate = await window.navigator.storage?.estimate?.();
@@ -62,6 +98,7 @@ export async function clearBrowserStorage() {
 
       if (
         key === themeStorageKey ||
+        key === performanceThresholdsStorageKey ||
         (key !== null &&
           (key.startsWith(storedLogPrefix) || key.startsWith(storedRawPrefix)))
       ) {
@@ -89,4 +126,44 @@ export function isQuotaExceededError(error: unknown): boolean {
   }
 
   return error.name === 'QuotaExceededError' || error.code === 22;
+}
+
+function normalizePerformanceThresholds(
+  value: unknown
+): PerformanceInsightThresholds {
+  const candidate =
+    value && typeof value === 'object'
+      ? (value as Partial<Record<keyof PerformanceInsightThresholds, unknown>>)
+      : {};
+
+  return {
+    dml: normalizeThreshold(candidate.dml, defaultPerformanceInsightThresholds.dml),
+    soql: normalizeThreshold(
+      candidate.soql,
+      defaultPerformanceInsightThresholds.soql
+    ),
+    apex: normalizeThreshold(
+      candidate.apex,
+      defaultPerformanceInsightThresholds.apex
+    ),
+    flow: normalizeThreshold(
+      candidate.flow,
+      defaultPerformanceInsightThresholds.flow
+    ),
+  };
+}
+
+function normalizeThreshold(value: unknown, fallback: number): number {
+  const parsedValue =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number.parseInt(value, 10)
+        : Number.NaN;
+
+  if (!Number.isFinite(parsedValue) || parsedValue < 1) {
+    return fallback;
+  }
+
+  return Math.round(parsedValue);
 }

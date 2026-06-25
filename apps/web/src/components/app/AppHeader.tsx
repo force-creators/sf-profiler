@@ -1,4 +1,11 @@
-import { BarChart3, FileText, Gauge, Info, Settings } from 'lucide-react';
+import {
+  BarChart3,
+  FileText,
+  Gauge,
+  Info,
+  Lightbulb,
+  Settings,
+} from 'lucide-react';
 import { limitTypes } from '@sfdc-profiler/core';
 import type { LoadedLog, ViewId } from '../../types';
 
@@ -57,6 +64,14 @@ export function AppHeader({
           Limits
         </button>
         <button
+          className={activeView === 'insights' ? 'active' : ''}
+          type="button"
+          onClick={() => onViewChange('insights')}
+        >
+          <Lightbulb size={16} aria-hidden="true" />
+          Insights
+        </button>
+        <button
           className={activeView === 'rawLog' ? 'active' : ''}
           type="button"
           onClick={() => onViewChange('rawLog')}
@@ -101,6 +116,10 @@ function getActiveViewTitle(activeView: ViewId): string {
 
   if (activeView === 'limits') {
     return 'Limits';
+  }
+
+  if (activeView === 'insights') {
+    return 'Insights';
   }
 
   if (activeView === 'rawLog') {

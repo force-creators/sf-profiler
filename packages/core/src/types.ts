@@ -36,6 +36,13 @@ export type ApexLogEntryMetadata = {
       rows?: LimitUsageSnapshot;
     };
   };
+  flow?: {
+    interviewId?: string;
+    flowName?: string;
+    object?: string;
+    elementType?: string;
+    elementName?: string;
+  };
 };
 
 export type LimitUsageSnapshot = {
@@ -87,6 +94,66 @@ export type DmlExecution = {
   };
 };
 
+export type ProfileInsightSeverity = 'info' | 'warning' | 'serious' | 'error';
+
+export type ProfileInsightKind = 'recursion' | 'duplicate-soql' | 'performance';
+
+export type PerformanceInsightCategory = 'dml' | 'soql' | 'apex' | 'flow';
+
+export type PerformanceInsightThresholds = Record<
+  PerformanceInsightCategory,
+  number
+>;
+
+export type RecursionInsightEvidence = {
+  context: {
+    kind?: 'trigger' | 'flow';
+    triggerName?: string;
+    flowName?: string;
+    object?: string;
+    event?: string;
+    label: string;
+  };
+  triggerEntryId: number;
+  recursiveTriggerEntryIds: number[];
+  dmlEntryIds: number[];
+  causingEntryIds: number[];
+};
+
+export type DuplicateSoqlInsightEvidence = {
+  query: string;
+  normalizedQuery: string;
+  executionIds: number[];
+  executionEntryIds: number[];
+  count: number;
+  totalDuration?: number;
+  totalRows?: number;
+};
+
+export type PerformanceInsightEvidence = {
+  category: PerformanceInsightCategory;
+  entryId: number;
+  label: string;
+  duration: number;
+  threshold: number;
+  lineNumber: number;
+};
+
+export type ProfileInsightEvidence =
+  | RecursionInsightEvidence
+  | DuplicateSoqlInsightEvidence
+  | PerformanceInsightEvidence;
+
+export type ProfileInsight = {
+  id: string;
+  kind: ProfileInsightKind;
+  severity: ProfileInsightSeverity;
+  title: string;
+  summary: string;
+  entryIds: number[];
+  evidence?: ProfileInsightEvidence;
+};
+
 export type ApexLogEntry = {
   id: number;
   logLine: string;
@@ -112,6 +179,7 @@ export type ApexLogProfile = {
   limits: Partial<Record<LimitType, LimitDetail[]>>;
   soqlExecutions: SoqlExecution[];
   dmlExecutions: DmlExecution[];
+  insights: ProfileInsight[];
   executionTime: number;
   totalLines: number;
   processedLines: number;
@@ -120,4 +188,5 @@ export type ApexLogProfile = {
 export type ParseApexLogOptions = {
   sourceName?: string;
   onProgress?: (progress: number) => void;
+  performanceThresholds?: Partial<PerformanceInsightThresholds>;
 };

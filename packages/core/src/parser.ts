@@ -1,4 +1,5 @@
 import { createDmlExecution, createSoqlExecution } from './parserExecutions';
+import { findProfileInsights } from './parserInsights';
 import {
   field,
   getDetailValue,
@@ -30,6 +31,8 @@ const START_EVENTS = new Set([
   'WF_CRITERIA_BEGIN',
   'WF_RULE_EVAL_BEGIN',
   'FLOW_CREATE_INTERVIEW_END',
+  'FLOW_ELEMENT_BEGIN',
+  'FLOW_BULK_ELEMENT_BEGIN',
 ]);
 
 const END_EVENTS = new Set([
@@ -42,6 +45,8 @@ const END_EVENTS = new Set([
   'WF_RULE_EVAL_END',
   'WF_RULE_NOT_EVALUATED',
   'FLOW_INTERVIEW_FINISHED',
+  'FLOW_ELEMENT_END',
+  'FLOW_BULK_ELEMENT_END',
 ]);
 
 const WORKFLOW_EVENTS = new Set([
@@ -54,6 +59,10 @@ const WORKFLOW_EVENTS = new Set([
   'WF_RULE_NOT_EVALUATED',
   'FLOW_CREATE_INTERVIEW_END',
   'FLOW_INTERVIEW_FINISHED',
+  'FLOW_ELEMENT_BEGIN',
+  'FLOW_ELEMENT_END',
+  'FLOW_BULK_ELEMENT_BEGIN',
+  'FLOW_BULK_ELEMENT_END',
 ]);
 
 export function parseApexLog(
@@ -123,17 +132,22 @@ export function parseApexLog(
     lineStart = newlineIndex + 1;
   }
 
-  return {
+  const profile: ApexLogProfile = {
     sourceName: options.sourceName,
     entries,
     rootIds,
     limits,
     soqlExecutions,
     dmlExecutions,
+    insights: [],
     executionTime: lastReportedTime,
     totalLines: lineNumber,
     processedLines,
   };
+
+  profile.insights = findProfileInsights(profile, options.performanceThresholds);
+
+  return profile;
 }
 
 export function shouldProcess(line: string): boolean {
@@ -167,6 +181,10 @@ export function shouldProcess(line: string): boolean {
     line.includes('WF_RULE_NOT_EVALUATED') ||
     line.includes('FLOW_CREATE_INTERVIEW_END') ||
     line.includes('FLOW_INTERVIEW_FINISHED') ||
+    line.includes('FLOW_ELEMENT_BEGIN') ||
+    line.includes('FLOW_ELEMENT_END') ||
+    line.includes('FLOW_BULK_ELEMENT_BEGIN') ||
+    line.includes('FLOW_BULK_ELEMENT_END') ||
     line.includes('Number of') ||
     line.includes('Maximum ')
   );
@@ -260,13 +278,17 @@ function classifyType(line: ParsedLine): LogEntryType {
   if (
     line.event === 'METHOD_ENTRY' ||
     line.event === 'METHOD_EXIT' ||
-    line.raw.includes('__sfdc_trigger')
+    line.raw.includes('__sfdc_trigger') ||
+    (line.event === 'CODE_UNIT_STARTED' &&
+      getDetailValue(line) === 'execute_anonymous_apex')
   ) {
     return 'apex';
   }
 
   if (
     WORKFLOW_EVENTS.has(line.event) ||
+    (line.event === 'CODE_UNIT_STARTED' &&
+      getDetailValue(line).startsWith('Flow:')) ||
     getDetailValue(line).includes('Workflow:')
   ) {
     return 'workflow';
@@ -306,6 +328,10 @@ function extractMetadata(line: ParsedLine): ApexLogEntryMetadata | undefined {
 
   if (line.event === 'DML_BEGIN' || line.event === 'DML_END') {
     return extractDmlMetadata(line);
+  }
+
+  if (isFlowMetadataEvent(line)) {
+    return extractFlowMetadata(line);
   }
 
   if (
@@ -478,11 +504,71 @@ function mergeEndMetadata(parent: ApexLogEntry, endEntry: ApexLogEntry) {
 function extractApexMetadata(line: ParsedLine): ApexLogEntryMetadata {
   const detail = getDetailValue(line);
   const method = line.event === 'METHOD_ENTRY' ? detail : undefined;
+  const triggerDetail = line.raw.includes('__sfdc_trigger')
+    ? field(line.raw, 4) || detail
+    : undefined;
 
   return {
     line: parseBracketedLineNumber(field(line.raw, 2)),
-    codeUnit: line.event === 'CODE_UNIT_STARTED' ? field(line.raw, 4) : undefined,
+    codeUnit: line.event === 'CODE_UNIT_STARTED' ? detail : undefined,
     method,
-    trigger: line.raw.includes('__sfdc_trigger') ? detail : undefined,
+    trigger: triggerDetail,
   };
+}
+
+function isFlowMetadataEvent(line: ParsedLine): boolean {
+  return (
+    (line.event === 'CODE_UNIT_STARTED' && getDetailValue(line).startsWith('Flow:')) ||
+    line.event === 'FLOW_CREATE_INTERVIEW_END' ||
+    line.event === 'FLOW_START_INTERVIEW_BEGIN' ||
+    line.event === 'FLOW_START_INTERVIEW_END' ||
+    line.event === 'FLOW_INTERVIEW_FINISHED' ||
+    line.event === 'FLOW_ELEMENT_BEGIN' ||
+    line.event === 'FLOW_ELEMENT_END' ||
+    line.event === 'FLOW_BULK_ELEMENT_BEGIN' ||
+    line.event === 'FLOW_BULK_ELEMENT_END'
+  );
+}
+
+function extractFlowMetadata(line: ParsedLine): ApexLogEntryMetadata {
+  const metadata: ApexLogEntryMetadata = {
+    line: parseBracketedLineNumber(field(line.raw, 2)),
+    flow: {},
+  };
+
+  if (line.event === 'CODE_UNIT_STARTED') {
+    const detail = getDetailValue(line);
+
+    metadata.codeUnit = detail;
+    metadata.flow = {
+      object: parseFlowObject(detail),
+    };
+  } else if (
+    line.event === 'FLOW_CREATE_INTERVIEW_END' ||
+    line.event === 'FLOW_START_INTERVIEW_BEGIN' ||
+    line.event === 'FLOW_START_INTERVIEW_END' ||
+    line.event === 'FLOW_INTERVIEW_FINISHED'
+  ) {
+    metadata.flow = {
+      interviewId: field(line.raw, 2) || undefined,
+      flowName: field(line.raw, 3) || undefined,
+    };
+  } else if (line.event === 'FLOW_ELEMENT_BEGIN' || line.event === 'FLOW_ELEMENT_END') {
+    metadata.flow = {
+      interviewId: field(line.raw, 2) || undefined,
+      elementType: field(line.raw, 3) || undefined,
+      elementName: field(line.raw, 4) || undefined,
+    };
+  } else {
+    metadata.flow = {
+      elementType: field(line.raw, 2) || undefined,
+      elementName: field(line.raw, 3) || undefined,
+    };
+  }
+
+  return metadata;
+}
+
+function parseFlowObject(detail: string): string | undefined {
+  return detail.startsWith('Flow:') ? detail.slice('Flow:'.length) || undefined : undefined;
 }

@@ -22,7 +22,9 @@ import type { LoadedLog, RecentStoredLog, StoredLog } from './types';
 export {
   clearBrowserStorage,
   getBrowserStorageEstimate,
+  persistPerformanceThresholds,
   persistTheme,
+  readStoredPerformanceThresholds,
   readStoredTheme,
   type BrowserStorageEstimate,
 } from './storage/browserStorage';
@@ -253,7 +255,8 @@ function normalizeStoredLog(parsed?: Partial<StoredLog>): StoredLog | undefined 
     rawText: parsed.rawText,
     profile:
       Array.isArray(parsed.profile.soqlExecutions) &&
-      Array.isArray(parsed.profile.dmlExecutions)
+      Array.isArray(parsed.profile.dmlExecutions) &&
+      Array.isArray(parsed.profile.insights)
       ? parsed.profile
       : parseApexLog(parsed.rawText, { sourceName: parsed.fileName }),
     storedAt: parsed.storedAt ?? new Date().toISOString(),
