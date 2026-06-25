@@ -1448,12 +1448,20 @@ body.is-resizing-summary-rows {
   border-radius: 999px;
 }
 
-.timeline-stage {
+.timeline-stage-frame {
+  position: relative;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--color-border-strong);
   border-radius: 6px;
+}
+
+.timeline-stage {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 .timeline-stage-collapsed {
@@ -1462,6 +1470,38 @@ body.is-resizing-summary-rows {
   border: 0;
   visibility: hidden;
   pointer-events: none;
+}
+
+.timeline-rendering-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--color-text-secondary);
+  background: rgb(255 255 255 / 86%);
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.timeline-rendering-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--color-accent-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: timeline-rendering-spin 900ms linear infinite;
+}
+
+@keyframes timeline-rendering-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .timeline-empty-state {
@@ -1670,6 +1710,10 @@ body.is-resizing-summary-rows {
 
 :root[data-theme='dark'] .timeline-empty-state {
   border-color: #3e3e42;
+}
+
+:root[data-theme='dark'] .timeline-rendering-overlay {
+  background: rgb(37 37 38 / 88%);
 }
 
 :root[data-theme='dark'] .vis-time-axis .vis-grid.vis-minor,

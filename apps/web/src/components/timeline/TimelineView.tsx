@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, FileText, Rows3, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DataSet } from 'vis-data';
 import {
   Timeline,
@@ -32,7 +32,16 @@ export function TimelineView({
   const timelineRef = useRef<Timeline | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<ApexLogEntry>();
   const [isTimelineCollapsed, setIsTimelineCollapsed] = useState(false);
+  const [isTimelineRendering, setIsTimelineRendering] = useState(true);
+  const [renderedTimelineProfile, setRenderedTimelineProfile] =
+    useState<ApexLogProfile | null>(null);
   const timedEntries = useMemo(() => getTimedEntries(profile), [profile]);
+  const isTimelineRenderPending =
+    isTimelineRendering || renderedTimelineProfile !== profile;
+  const refreshTimelineView = useCallback(() => {
+    timelineRef.current?.redraw();
+    timelineRef.current?.fit({ animation: false });
+  }, []);
 
   useEffect(() => {
     onCollapseChange?.(isTimelineCollapsed);
@@ -44,76 +53,111 @@ export function TimelineView({
     }
 
     setSelectedEntry(undefined);
-
-    const itemById = new Map<number, ApexLogEntry>();
-    const groups = new DataSet<DataGroup>(
-      timelineGroups.filter((group) =>
-        timedEntries.some((entry) => entry.type === group.id)
-      )
-    );
-    const items = new DataSet<DataItem>(
-      timedEntries.map((entry) => {
-        itemById.set(entry.id, entry);
-
-        return {
-          id: entry.id,
-          className: `timeline-item-${entry.type}`,
-          content: formatTimelineContent(entry),
-          end: entry.endTime,
-          group: entry.type,
-          start: entry.time,
-          title: formatTimelineTitle(entry),
-          type: 'range',
-        };
-      })
-    );
-    const options: TimelineOptions = {
-      autoResize: true,
-      clickToUse: false,
-      end: Math.max(profile.executionTime, 1),
-      format: {
-        majorLabels: () => '',
-        minorLabels: (date) => `${date.valueOf()} ms`,
-      },
-      height: '100%',
-      horizontalScroll: true,
-      margin: {
-        axis: 12,
-        item: {
-          horizontal: 0,
-          vertical: 6,
-        },
-      },
-      max: Math.max(profile.executionTime * 1.05, 1),
-      min: 0,
-      moveable: true,
-      multiselect: false,
-      orientation: {
-        axis: 'top',
-        item: 'top',
-      },
-      selectable: true,
-      showCurrentTime: false,
-      stack: true,
-      start: 0,
-      verticalScroll: true,
-      zoomable: true,
-      zoomKey: 'ctrlKey',
-    };
-
+    setIsTimelineRendering(true);
+    setRenderedTimelineProfile(null);
     timelineRef.current?.destroy();
-    const timeline = new Timeline(containerRef.current, items, groups, options);
-    timeline.on('select', ({ items: selectedItems }: { items: number[] }) => {
-      setSelectedEntry(itemById.get(selectedItems[0]));
+    timelineRef.current = null;
+
+    if (timedEntries.length === 0) {
+      setIsTimelineRendering(false);
+      setRenderedTimelineProfile(profile);
+      return undefined;
+    }
+
+    let frameId: number | undefined;
+    let timeoutId: number | undefined;
+    let timeline: Timeline | null = null;
+
+    function renderTimeline() {
+      if (!containerRef.current) {
+        return;
+      }
+
+      const itemById = new Map<number, ApexLogEntry>();
+      const groups = new DataSet<DataGroup>(
+        timelineGroups.filter((group) =>
+          timedEntries.some((entry) => entry.type === group.id)
+        )
+      );
+      const items = new DataSet<DataItem>(
+        timedEntries.map((entry) => {
+          itemById.set(entry.id, entry);
+
+          return {
+            id: entry.id,
+            className: `timeline-item-${entry.type}`,
+            content: formatTimelineContent(entry),
+            end: entry.endTime,
+            group: entry.type,
+            start: entry.time,
+            title: formatTimelineTitle(entry),
+            type: 'range',
+          };
+        })
+      );
+      const options: TimelineOptions = {
+        autoResize: true,
+        clickToUse: false,
+        end: Math.max(profile.executionTime, 1),
+        format: {
+          majorLabels: () => '',
+          minorLabels: (date) => `${date.valueOf()} ms`,
+        },
+        height: '100%',
+        horizontalScroll: true,
+        margin: {
+          axis: 12,
+          item: {
+            horizontal: 0,
+            vertical: 6,
+          },
+        },
+        max: Math.max(profile.executionTime * 1.05, 1),
+        min: 0,
+        moveable: true,
+        multiselect: false,
+        orientation: {
+          axis: 'top',
+          item: 'top',
+        },
+        selectable: true,
+        showCurrentTime: false,
+        stack: true,
+        start: 0,
+        verticalScroll: true,
+        zoomable: true,
+        zoomKey: 'ctrlKey',
+      };
+
+      timeline = new Timeline(containerRef.current, items, groups, options);
+      timeline.on('select', ({ items: selectedItems }: { items: number[] }) => {
+        setSelectedEntry(itemById.get(selectedItems[0]));
+      });
+      timelineRef.current = timeline;
+      timeline.fit({ animation: false });
+      setRenderedTimelineProfile(profile);
+      setIsTimelineRendering(false);
+    }
+
+    frameId = window.requestAnimationFrame(() => {
+      timeoutId = window.setTimeout(renderTimeline, 0);
     });
-    timelineRef.current = timeline;
-    timeline.fit({ animation: false });
 
     return () => {
-      timeline.destroy();
-      timelineRef.current = null;
+      if (frameId !== undefined) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+
+      timeline?.destroy();
+      if (timelineRef.current === timeline) {
+        timelineRef.current = null;
+      }
     };
-  }, [profile.executionTime, timedEntries]);
+  }, [profile, timedEntries]);
 
   useEffect(() => {
     if (!isActive) {
@@ -121,13 +165,13 @@ export function TimelineView({
     }
 
     const frameId = window.requestAnimationFrame(() => {
-      timelineRef.current?.redraw();
+      refreshTimelineView();
     });
 
     return () => {
       window.cancelAnimationFrame(frameId);
     };
-  }, [isActive]);
+  }, [isActive, refreshTimelineView]);
 
   useEffect(() => {
     if (!isActive || isTimelineCollapsed) {
@@ -135,17 +179,87 @@ export function TimelineView({
     }
 
     const frameId = window.requestAnimationFrame(() => {
-      timelineRef.current?.redraw();
-      timelineRef.current?.fit({ animation: false });
+      refreshTimelineView();
     });
 
     return () => {
       window.cancelAnimationFrame(frameId);
     };
-  }, [isActive, isTimelineCollapsed]);
+  }, [isActive, isTimelineCollapsed, refreshTimelineView]);
 
   useEffect(() => {
-    if (!isActive || selectedEntryId === undefined || !timelineRef.current) {
+    if (!isActive || isTimelineCollapsed || isTimelineRenderPending) {
+      return undefined;
+    }
+
+    const frameIds: number[] = [];
+    const timeoutIds: number[] = [];
+    const scheduleRefreshFrame = () => {
+      const frameId = window.requestAnimationFrame(refreshTimelineView);
+      frameIds.push(frameId);
+    };
+
+    scheduleRefreshFrame();
+    const secondFrameId = window.requestAnimationFrame(scheduleRefreshFrame);
+    frameIds.push(secondFrameId);
+
+    [50, 150, 400].forEach((delay) => {
+      const timeoutId = window.setTimeout(scheduleRefreshFrame, delay);
+      timeoutIds.push(timeoutId);
+    });
+
+    return () => {
+      frameIds.forEach((frameId) => window.cancelAnimationFrame(frameId));
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    };
+  }, [
+    isActive,
+    isTimelineCollapsed,
+    isTimelineRenderPending,
+    refreshTimelineView,
+  ]);
+
+  useEffect(() => {
+    if (
+      !isActive ||
+      isTimelineCollapsed ||
+      isTimelineRenderPending ||
+      !containerRef.current
+    ) {
+      return undefined;
+    }
+
+    let frameId: number | undefined;
+    const resizeObserver = new ResizeObserver(() => {
+      if (frameId !== undefined) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      frameId = window.requestAnimationFrame(refreshTimelineView);
+    });
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+
+      if (frameId !== undefined) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, [
+    isActive,
+    isTimelineCollapsed,
+    isTimelineRenderPending,
+    refreshTimelineView,
+  ]);
+
+  useEffect(() => {
+    if (
+      !isActive ||
+      isTimelineRenderPending ||
+      selectedEntryId === undefined ||
+      !timelineRef.current
+    ) {
       return;
     }
 
@@ -162,7 +276,7 @@ export function TimelineView({
       animation: { animation: false },
       focus: true,
     });
-  }, [isActive, selectedEntryId, timedEntries]);
+  }, [isActive, isTimelineRenderPending, selectedEntryId, timedEntries]);
 
   if (timedEntries.length === 0) {
     return (
@@ -216,9 +330,26 @@ export function TimelineView({
           </button>
         </div>
         <div
-          className={`timeline-stage${isTimelineCollapsed ? ' timeline-stage-collapsed' : ''}`}
-          ref={containerRef}
-        />
+          className={`timeline-stage-frame${
+            isTimelineCollapsed ? ' timeline-stage-collapsed' : ''
+          }`}
+        >
+          <div
+            aria-busy={isTimelineRenderPending}
+            className="timeline-stage"
+            ref={containerRef}
+          />
+          {isTimelineRenderPending && !isTimelineCollapsed && (
+            <div
+              aria-live="polite"
+              className="timeline-rendering-overlay"
+              role="status"
+            >
+              <span className="timeline-rendering-spinner" aria-hidden="true" />
+              <span>Rendering timeline...</span>
+            </div>
+          )}
+        </div>
       </section>
 
       {hasSelection && selectedEntry && !isTimelineCollapsed && (
