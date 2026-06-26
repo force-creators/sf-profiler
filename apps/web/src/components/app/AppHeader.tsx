@@ -5,6 +5,7 @@ import {
   Info,
   Lightbulb,
   Settings,
+  Workflow,
 } from 'lucide-react';
 import { limitTypes } from '@sfdc-profiler/core';
 import type { LoadedLog, ViewId } from '../../types';
@@ -54,6 +55,14 @@ export function AppHeader({
         >
           <BarChart3 size={16} aria-hidden="true" />
           Summary
+        </button>
+        <button
+          className={activeView === 'automation' ? 'active' : ''}
+          type="button"
+          onClick={() => onViewChange('automation')}
+        >
+          <Workflow size={16} aria-hidden="true" />
+          Automation
         </button>
         <button
           className={activeView === 'insights' ? 'active' : ''}
@@ -116,6 +125,10 @@ function getActiveViewTitle(activeView: ViewId): string {
 
   if (activeView === 'limits') {
     return 'Limits';
+  }
+
+  if (activeView === 'automation') {
+    return 'Automation';
   }
 
   if (activeView === 'insights') {

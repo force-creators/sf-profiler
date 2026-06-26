@@ -8,6 +8,7 @@ import {
   Lightbulb,
   OctagonAlert,
   Rows3,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
@@ -25,6 +26,7 @@ const MIN_DML_SECTION_HEIGHT = 170;
 
 export function SummaryView({
   loadedLog,
+  onOpenAutomation,
   onOpenInsights,
   onOpenLimitsSection,
   onTopCollapseChange,
@@ -32,6 +34,7 @@ export function SummaryView({
   selectedEntryId,
 }: {
   loadedLog: LoadedLog;
+  onOpenAutomation: (unitId?: string) => void;
   onOpenInsights: (insightId?: string) => void;
   onOpenLimitsSection: (section: 'soql' | 'dml') => void;
   onTopCollapseChange: (isCollapsed: boolean) => void;
@@ -78,6 +81,7 @@ export function SummaryView({
   );
   const dmlExecutions = loadedLog.profile.dmlExecutions ?? [];
   const insights = loadedLog.profile.insights ?? [];
+  const topAutomationUnit = loadedLog.profile.automation?.units[0];
 
   useEffect(() => {
     onTopCollapseChange(
@@ -255,6 +259,19 @@ export function SummaryView({
           </div>
           {!isInsightsCollapsed && (
             <div className="summary-insights-body">
+              {topAutomationUnit && (
+                <button
+                  className="summary-automation-callout"
+                  onClick={() => onOpenAutomation(topAutomationUnit.id)}
+                  type="button"
+                >
+                  <Workflow size={16} aria-hidden="true" />
+                  <span>
+                    <strong>Top Automation: {topAutomationUnit.name}</strong>
+                    <small>{formatAutomationUnitMetrics(topAutomationUnit)}</small>
+                  </span>
+                </button>
+              )}
               {insights.length === 0 ? (
                 <p className="muted">No insights found yet.</p>
               ) : (
@@ -384,6 +401,23 @@ export function SummaryView({
       </div>
     </div>
   );
+}
+
+function formatAutomationUnitMetrics(
+  unit: LoadedLog['profile']['automation']['units'][number]
+): string {
+  const metrics = [
+    unit.metrics.cpuMs ? `${unit.metrics.cpuMs.value} CPU` : undefined,
+    unit.metrics.durationMs ? `${unit.metrics.durationMs.value} ms` : undefined,
+    unit.metrics.soqlQueries
+      ? `${unit.metrics.soqlQueries.value} SOQL`
+      : undefined,
+    unit.metrics.dmlStatements ? `${unit.metrics.dmlStatements.value} DML` : undefined,
+  ].filter(Boolean);
+
+  return metrics.length > 0
+    ? metrics.join(', ')
+    : `${unit.executionIds.length} executions`;
 }
 
 function getSummaryInsightSeverityIcon(

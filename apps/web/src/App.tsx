@@ -12,6 +12,7 @@ import {
 } from '@sfdc-profiler/core';
 import { AppHeader } from './components/app/AppHeader';
 import { EmptyState } from './components/app/EmptyState';
+import { AutomationView } from './components/automation/AutomationView';
 import { InsightsView } from './components/insights/InsightsView';
 import { LimitsView } from './components/limits/LimitsView';
 import { RawLogView } from './components/rawlog/RawLogView';
@@ -61,6 +62,9 @@ export function App() {
   const [insightJumpRequest, setInsightJumpRequest] = useState<
     { insightId: string; nonce: number } | undefined
   >();
+  const [automationJumpRequest, setAutomationJumpRequest] = useState<
+    { unitId?: string; nonce: number } | undefined
+  >();
   const [rawLogJumpRequest, setRawLogJumpRequest] = useState<
     { lineNumber: number; nonce: number } | undefined
   >();
@@ -83,6 +87,7 @@ export function App() {
     setSelectedLimitEntryId(undefined);
     setLimitsJumpRequest(undefined);
     setInsightJumpRequest(undefined);
+    setAutomationJumpRequest(undefined);
     setRawLogJumpRequest(undefined);
     setIsSummaryTimelineExpanded(false);
   }, [setIsSummaryTimelineExpanded]);
@@ -311,6 +316,11 @@ export function App() {
     setActiveView('insights');
   }
 
+  function openAutomationView(unitId?: string) {
+    setAutomationJumpRequest({ unitId, nonce: Date.now() });
+    setActiveView('automation');
+  }
+
   function openRawLogAtLine(lineNumber: number) {
     setRawLogJumpRequest({ lineNumber, nonce: Date.now() });
     setActiveView('rawLog');
@@ -415,6 +425,7 @@ export function App() {
                 <div className="summary-top-region">
                   <SummaryView
                     loadedLog={loadedLog}
+                    onOpenAutomation={openAutomationView}
                     onOpenInsights={openInsightsView}
                     onOpenLimitsSection={openLimitsSection}
                     onSelectTimelineEntry={openSummaryTimeline}
@@ -452,9 +463,18 @@ export function App() {
                 selectedEntryId={selectedLimitEntryId}
               />
             )}
+            {activeView === 'automation' && (
+              <AutomationView
+                jumpRequest={automationJumpRequest}
+                onOpenInsight={openInsightsView}
+                onSelectTimelineEntry={openSummaryTimeline}
+                profile={loadedLog.profile}
+              />
+            )}
             {activeView === 'insights' && (
               <InsightsView
                 jumpRequest={insightJumpRequest}
+                onOpenAutomation={openAutomationView}
                 onSelectTimelineEntry={openSummaryTimeline}
                 profile={loadedLog.profile}
               />

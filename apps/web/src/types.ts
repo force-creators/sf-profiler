@@ -23,6 +23,7 @@ export type LimitsSectionId = 'soql' | 'dml' | 'async' | 'system';
 
 export type ViewId =
   | 'summary'
+  | 'automation'
   | 'limits'
   | 'insights'
   | 'rawLog'

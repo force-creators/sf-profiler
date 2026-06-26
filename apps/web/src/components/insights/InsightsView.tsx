@@ -13,6 +13,7 @@ import {
 import type {
   ApexLogEntry,
   ApexLogProfile,
+  AutomationUnit,
   DuplicateSoqlInsightEvidence,
   PerformanceInsightEvidence,
   ProfileInsight,
@@ -34,15 +35,20 @@ const insightTabs: InsightTab[] = [
 
 export function InsightsView({
   jumpRequest,
+  onOpenAutomation,
   onSelectTimelineEntry,
   profile,
 }: {
   jumpRequest?: { insightId: string; nonce: number };
+  onOpenAutomation: (unitId: string) => void;
   onSelectTimelineEntry: (entryId: number) => void;
   profile: ApexLogProfile;
 }) {
   const insights = profile.insights ?? [];
   const entriesById = new Map(profile.entries.map((entry) => [entry.id, entry]));
+  const automationUnitsById = new Map(
+    (profile.automation?.units ?? []).map((unit) => [unit.id, unit])
+  );
   const firstAvailableKind = getFirstAvailableInsightKind(insights);
   const [activeInsightKind, setActiveInsightKind] =
     useState<ProfileInsightKind>(firstAvailableKind);
@@ -156,9 +162,11 @@ export function InsightsView({
         {activeInsights.map((insight) => (
           <InsightCard
             entriesById={entriesById}
+            automationUnitsById={automationUnitsById}
             isExpanded={expandedInsightIds.has(insight.id)}
             insight={insight}
             key={insight.id}
+            onOpenAutomation={onOpenAutomation}
             onSelectTimelineEntry={onSelectTimelineEntry}
             onToggleExpanded={() => toggleInsightExpanded(insight.id)}
           />
@@ -191,15 +199,19 @@ function getInsightDetailsId(insightId: string): string {
 }
 
 function InsightCard({
+  automationUnitsById,
   entriesById,
   isExpanded,
   insight,
+  onOpenAutomation,
   onSelectTimelineEntry,
   onToggleExpanded,
 }: {
+  automationUnitsById: Map<string, AutomationUnit>;
   entriesById: Map<number, ApexLogEntry>;
   isExpanded: boolean;
   insight: ProfileInsight;
+  onOpenAutomation: (unitId: string) => void;
   onSelectTimelineEntry: (entryId: number) => void;
   onToggleExpanded: () => void;
 }) {
@@ -259,6 +271,12 @@ function InsightCard({
 
       {isExpanded && (
         <div className="insight-card-details" id={getInsightDetailsId(insight.id)}>
+          <AutomationInsightLinks
+            automationUnitsById={automationUnitsById}
+            insight={insight}
+            onOpenAutomation={onOpenAutomation}
+          />
+
           {recursionEvidence && (
             <RecursionInsightDetails
               entriesById={entriesById}
@@ -285,6 +303,45 @@ function InsightCard({
           )}
         </div>
       )}
+    </section>
+  );
+}
+
+function AutomationInsightLinks({
+  automationUnitsById,
+  insight,
+  onOpenAutomation,
+}: {
+  automationUnitsById: Map<string, AutomationUnit>;
+  insight: ProfileInsight;
+  onOpenAutomation: (unitId: string) => void;
+}) {
+  const units =
+    insight.automationUnitIds
+      ?.map((unitId) => automationUnitsById.get(unitId))
+      .filter((unit): unit is AutomationUnit => Boolean(unit)) ?? [];
+
+  if (units.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="insight-automation-links">
+      <h4>Related Automation</h4>
+      <ol className="insight-entry-list">
+        {units.map((unit) => (
+          <li key={unit.id}>
+            <button
+              className="insight-entry-button"
+              onClick={() => onOpenAutomation(unit.id)}
+              type="button"
+            >
+              <span>{unit.name}</span>
+              <small>{formatAutomationUnitContext(unit)}</small>
+            </button>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }
@@ -650,6 +707,10 @@ function formatPerformanceCategory(
   }
 
   return 'Flow';
+}
+
+function formatAutomationUnitContext(unit: AutomationUnit): string {
+  return [unit.object, unit.event].filter(Boolean).join(' / ') || unit.codeUnit || unit.kind;
 }
 
 function formatMilliseconds(milliseconds: number): string {

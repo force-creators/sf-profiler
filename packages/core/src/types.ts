@@ -151,7 +151,101 @@ export type ProfileInsight = {
   title: string;
   summary: string;
   entryIds: number[];
+  automationUnitIds?: string[];
+  automationExecutionIds?: string[];
   evidence?: ProfileInsightEvidence;
+};
+
+export type AutomationKind =
+  | 'flow'
+  | 'trigger'
+  | 'workflow'
+  | 'process-builder'
+  | 'duplicate-rule'
+  | 'apex'
+  | 'platform'
+  | 'other';
+
+export type AutomationMetricConfidence =
+  | 'exact'
+  | 'inferred'
+  | 'duration'
+  | 'unknown';
+
+export type AutomationMetric = {
+  value: number;
+  confidence: AutomationMetricConfidence;
+};
+
+export type AutomationFlagKind =
+  | 'recursive'
+  | 'cascade-cycle'
+  | 'performance'
+  | 'duplicate-soql';
+
+export type AutomationFlag = {
+  kind: AutomationFlagKind;
+  insightId?: string;
+};
+
+export type AutomationMetrics = {
+  durationMs?: AutomationMetric;
+  cpuMs?: AutomationMetric;
+  soqlQueries?: AutomationMetric;
+  soqlRows?: AutomationMetric;
+  dmlStatements?: AutomationMetric;
+  dmlRows?: AutomationMetric;
+};
+
+export type AutomationElement = {
+  id: string;
+  unitId: string;
+  name: string;
+  type?: string;
+  entryIds: number[];
+  executionIds: string[];
+  metrics: AutomationMetrics;
+};
+
+export type AutomationExecution = {
+  id: string;
+  unitId: string;
+  kind: AutomationKind;
+  name: string;
+  object?: string;
+  event?: string;
+  startEntryId?: number;
+  endEntryId?: number;
+  startLineNumber?: number;
+  endLineNumber?: number;
+  entryIds: number[];
+  elementIds: string[];
+  soqlExecutionIds: number[];
+  dmlExecutionIds: number[];
+  metrics: AutomationMetrics;
+  flags: AutomationFlag[];
+  insightIds: string[];
+};
+
+export type AutomationUnit = {
+  id: string;
+  kind: AutomationKind;
+  name: string;
+  object?: string;
+  event?: string;
+  codeUnit?: string;
+  entryIds: number[];
+  executionIds: string[];
+  elementIds: string[];
+  metrics: AutomationMetrics;
+  flags: AutomationFlag[];
+  insightIds: string[];
+};
+
+export type AutomationProfile = {
+  units: AutomationUnit[];
+  executions: AutomationExecution[];
+  elements: AutomationElement[];
 };
 
 export type ApexLogEntry = {
@@ -179,6 +273,7 @@ export type ApexLogProfile = {
   limits: Partial<Record<LimitType, LimitDetail[]>>;
   soqlExecutions: SoqlExecution[];
   dmlExecutions: DmlExecution[];
+  automation: AutomationProfile;
   insights: ProfileInsight[];
   parserVersion: number;
   executionTime: number;

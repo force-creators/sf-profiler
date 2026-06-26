@@ -200,6 +200,108 @@ describe('parseApexLog', () => {
     });
   });
 
+  it('aggregates flow automation by real flow name with exact flow usage metrics', () => {
+    const profile = parseApexLog(
+      [
+        '59.0 APEX_CODE,FINEST',
+        '12:00:00.0 (1000000)|EXECUTION_STARTED',
+        '12:00:00.0 (2000000)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Account',
+        '12:00:00.0 (3000000)|FLOW_CREATE_INTERVIEW_END|account-1|Account Automation',
+        '12:00:00.0 (4000000)|FLOW_START_INTERVIEW_BEGIN|account-1|Account Automation',
+        '12:00:00.0 (4100000)|FLOW_START_INTERVIEW_LIMIT_USAGE|SOQL queries: 2 out of 100',
+        '12:00:00.0 (4200000)|FLOW_START_INTERVIEW_LIMIT_USAGE|SOQL query rows: 5 out of 50000',
+        '12:00:00.0 (4300000)|FLOW_START_INTERVIEW_LIMIT_USAGE|DML statements: 1 out of 150',
+        '12:00:00.0 (4400000)|FLOW_START_INTERVIEW_LIMIT_USAGE|DML rows: 3 out of 10000',
+        '12:00:00.0 (4500000)|FLOW_START_INTERVIEW_LIMIT_USAGE|CPU time in ms: 20 out of 15000',
+        '12:00:00.0 (5000000)|FLOW_ELEMENT_BEGIN|account-1|FlowDecision|Should_Update',
+        '12:00:00.0 (5100000)|FLOW_ELEMENT_LIMIT_USAGE|2 ms CPU time, total 22 out of 15000',
+        '12:00:00.0 (5200000)|FLOW_ELEMENT_END|account-1|FlowDecision|Should_Update',
+        '12:00:00.0 (6000000)|FLOW_START_INTERVIEW_END|account-1|Account Automation',
+        '12:00:00.0 (7000000)|FLOW_BULK_ELEMENT_BEGIN|FlowRecordUpdate|Update_Contacts',
+        '12:00:00.0 (8000000)|FLOW_BULK_ELEMENT_LIMIT_USAGE|1 SOQL queries, total 3 out of 100',
+        '12:00:00.0 (8100000)|FLOW_BULK_ELEMENT_LIMIT_USAGE|4 SOQL query rows, total 9 out of 50000',
+        '12:00:00.0 (8200000)|FLOW_BULK_ELEMENT_LIMIT_USAGE|1 DML statements, total 2 out of 150',
+        '12:00:00.0 (8300000)|FLOW_BULK_ELEMENT_LIMIT_USAGE|2 DML rows, total 5 out of 10000',
+        '12:00:00.0 (8400000)|FLOW_BULK_ELEMENT_LIMIT_USAGE|8 ms CPU time, total 30 out of 15000',
+        '12:00:00.0 (9000000)|FLOW_BULK_ELEMENT_END|FlowRecordUpdate|Update_Contacts|1|2',
+        '12:00:00.0 (10000000)|FLOW_INTERVIEW_FINISHED|account-1|Account Automation',
+        '12:00:00.0 (10100000)|FLOW_INTERVIEW_FINISHED_LIMIT_USAGE|SOQL queries: 3 out of 100',
+        '12:00:00.0 (10200000)|FLOW_INTERVIEW_FINISHED_LIMIT_USAGE|SOQL query rows: 9 out of 50000',
+        '12:00:00.0 (10300000)|FLOW_INTERVIEW_FINISHED_LIMIT_USAGE|DML statements: 2 out of 150',
+        '12:00:00.0 (10400000)|FLOW_INTERVIEW_FINISHED_LIMIT_USAGE|DML rows: 5 out of 10000',
+        '12:00:00.0 (10500000)|FLOW_INTERVIEW_FINISHED_LIMIT_USAGE|CPU time in ms: 30 out of 15000',
+        '12:00:00.0 (11000000)|CODE_UNIT_FINISHED|Flow:Account',
+        '12:00:00.0 (12000000)|EXECUTION_FINISHED',
+      ].join('\n')
+    );
+
+    const flowUnit = profile.automation.units.find(
+      (unit) => unit.kind === 'flow' && unit.name === 'Account Automation'
+    );
+
+    expect(flowUnit).toMatchObject({
+      kind: 'flow',
+      name: 'Account Automation',
+      object: 'Account',
+      metrics: {
+        cpuMs: { value: 10, confidence: 'exact' },
+        soqlQueries: { value: 1, confidence: 'exact' },
+        soqlRows: { value: 4, confidence: 'exact' },
+        dmlStatements: { value: 1, confidence: 'exact' },
+        dmlRows: { value: 2, confidence: 'exact' },
+      },
+    });
+    expect(flowUnit?.name).not.toBe('Flow:Account');
+
+    const updateElement = profile.automation.elements.find(
+      (element) => element.name === 'Update_Contacts'
+    );
+
+    expect(updateElement).toMatchObject({
+      type: 'FlowRecordUpdate',
+      metrics: {
+        cpuMs: { value: 8, confidence: 'exact' },
+        soqlQueries: { value: 1, confidence: 'exact' },
+        soqlRows: { value: 4, confidence: 'exact' },
+        dmlStatements: { value: 1, confidence: 'exact' },
+        dmlRows: { value: 2, confidence: 'exact' },
+      },
+    });
+  });
+
+  it('aggregates trigger automation duration and descendant database work', () => {
+    const profile = parseApexLog(
+      [
+        '59.0 APEX_CODE,FINEST',
+        '12:00:00.0 (1000000)|EXECUTION_STARTED',
+        '12:00:00.0 (2000000)|CODE_UNIT_STARTED|[EXTERNAL]|01q000000000000|AccountTrigger on Account trigger event BeforeInsert|__sfdc_trigger/AccountTrigger',
+        '12:00:00.0 (3000000)|SOQL_EXECUTE_BEGIN|[2]|Aggregations:0|SELECT Id FROM Account',
+        '12:00:00.0 (4000000)|SOQL_EXECUTE_END|[2]|Rows:2',
+        '12:00:00.0 (5000000)|DML_BEGIN|[3]|Op:Insert|Type:Task|Rows:2',
+        '12:00:00.0 (6000000)|DML_END|[3]',
+        '12:00:00.0 (9000000)|CODE_UNIT_FINISHED|AccountTrigger on Account trigger event BeforeInsert|__sfdc_trigger/AccountTrigger',
+        '12:00:00.0 (10000000)|EXECUTION_FINISHED',
+      ].join('\n')
+    );
+
+    const triggerUnit = profile.automation.units.find(
+      (unit) => unit.kind === 'trigger'
+    );
+
+    expect(triggerUnit).toMatchObject({
+      name: 'AccountTrigger',
+      object: 'Account',
+      event: 'BeforeInsert',
+      metrics: {
+        durationMs: { value: 7, confidence: 'duration' },
+        soqlQueries: { value: 1, confidence: 'inferred' },
+        soqlRows: { value: 2, confidence: 'inferred' },
+        dmlStatements: { value: 1, confidence: 'inferred' },
+        dmlRows: { value: 2, confidence: 'inferred' },
+      },
+    });
+  });
+
   it('reports performance insights for entries over configured thresholds', () => {
     const profile = parseApexLog(
       [

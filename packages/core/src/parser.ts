@@ -1,4 +1,8 @@
 import { createDmlExecution, createSoqlExecution } from './parserExecutions';
+import {
+  AutomationCollector,
+  finalizeAutomationInsights,
+} from './parserAutomation';
 import { findProfileInsights } from './parserInsights';
 import {
   field,
@@ -65,7 +69,7 @@ const WORKFLOW_EVENTS = new Set([
   'FLOW_BULK_ELEMENT_END',
 ]);
 
-export const parserVersion = 2;
+export const parserVersion = 3;
 
 export function parseApexLog(
   logText: string,
@@ -77,6 +81,7 @@ export function parseApexLog(
   const limits: ApexLogProfile['limits'] = {};
   const soqlExecutions: SoqlExecution[] = [];
   const dmlExecutions: DmlExecution[] = [];
+  const automationCollector = new AutomationCollector();
   let lastReportedTime = 0;
   let lastProgress = 0;
   let processedLines = 0;
@@ -106,6 +111,8 @@ export function parseApexLog(
         lastReportedTime
       );
 
+      automationCollector.recordEntry(entry);
+
       if (entry.limitDetail) {
         limits[entry.limitDetail.name] ??= [];
         limits[entry.limitDetail.name]?.push(entry.limitDetail);
@@ -117,7 +124,8 @@ export function parseApexLog(
         rootIds,
         parentStack,
         soqlExecutions,
-        dmlExecutions
+        dmlExecutions,
+        automationCollector
       );
     }
 
@@ -141,6 +149,7 @@ export function parseApexLog(
     limits,
     soqlExecutions,
     dmlExecutions,
+    automation: { units: [], executions: [], elements: [] },
     insights: [],
     parserVersion,
     executionTime: lastReportedTime,
@@ -149,16 +158,16 @@ export function parseApexLog(
   };
 
   profile.insights = findProfileInsights(profile, options.performanceThresholds);
+  profile.automation = finalizeAutomationInsights(
+    automationCollector,
+    profile.insights
+  );
 
   return profile;
 }
 
 export function shouldProcess(line: string): boolean {
-  if (
-    line.length === 0 ||
-    line.includes('FLOW_START_INTERVIEW_LIMIT_USAGE') ||
-    line.includes('System.Type.equals')
-  ) {
+  if (line.length === 0 || line.includes('System.Type.equals')) {
     return false;
   }
 
@@ -226,7 +235,8 @@ function processEntry(
   rootIds: number[],
   parentStack: ApexLogEntry[],
   soqlExecutions: SoqlExecution[],
-  dmlExecutions: DmlExecution[]
+  dmlExecutions: DmlExecution[],
+  automationCollector: AutomationCollector
 ) {
   if (END_EVENTS.has(entry.event) && parentStack.length > 0) {
     const parent = parentStack.pop();
@@ -238,11 +248,15 @@ function processEntry(
       parent.endLineNumber = entry.lineNumber;
 
       if (parent.type === 'soql') {
-        soqlExecutions.push(createSoqlExecution(parent, soqlExecutions));
+        const execution = createSoqlExecution(parent, soqlExecutions);
+        soqlExecutions.push(execution);
+        automationCollector.recordSoqlExecution(execution);
       }
 
       if (parent.type === 'dml') {
-        dmlExecutions.push(createDmlExecution(parent, dmlExecutions));
+        const execution = createDmlExecution(parent, dmlExecutions);
+        dmlExecutions.push(execution);
+        automationCollector.recordDmlExecution(execution);
       }
     }
 
