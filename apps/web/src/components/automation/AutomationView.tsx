@@ -261,7 +261,7 @@ function AutomationCard({
         <div className="automation-card-title">
           <h3>{unit.name}</h3>
           <p>{formatAutomationSubtitle(unit)}</p>
-          <small>{formatAutomationSummary(unit)}</small>
+          <SummaryStatList stats={formatAutomationSummaryStats(unit)} />
         </div>
 
         <FlagList flags={unit.flags} onOpenInsight={onOpenInsight} />
@@ -269,24 +269,6 @@ function AutomationCard({
 
       {isExpanded && (
         <div className="automation-card-details">
-          <section className="automation-totals-section">
-            <h4>Totals</h4>
-            <MetricTable
-              metrics={[
-                { label: 'Runs', value: `${unit.executionIds.length}` },
-                { label: 'CPU', value: formatMetric(unit.metrics.cpuMs) },
-                {
-                  label: 'Duration',
-                  value: formatMetric(unit.metrics.durationMs),
-                },
-                { label: 'SOQL', value: formatMetric(unit.metrics.soqlQueries) },
-                { label: 'SOQL Rows', value: formatMetric(unit.metrics.soqlRows) },
-                { label: 'DML', value: formatMetric(unit.metrics.dmlStatements) },
-                { label: 'DML Rows', value: formatMetric(unit.metrics.dmlRows) },
-              ]}
-            />
-          </section>
-
           <section className="automation-detail-section">
             <h4>Executions</h4>
             <div className="automation-execution-row automation-table-heading">
@@ -318,8 +300,8 @@ function AutomationCard({
                           : 'Line -'}
                       </small>
                     </span>
-                    <span>{formatMetric(execution.metrics.cpuMs)}</span>
-                    <span>{formatMetric(execution.metrics.durationMs)}</span>
+                    <span>{formatMetric(execution.metrics.cpuMs, 'ms')}</span>
+                    <span>{formatMetric(execution.metrics.durationMs, 'ms')}</span>
                     <span>{formatMetric(execution.metrics.soqlQueries)}</span>
                     <span>{formatMetric(execution.metrics.dmlStatements)}</span>
                     <FlagList
@@ -362,7 +344,7 @@ function AutomationCard({
                         <strong>{element.name}</strong>
                         <small>{element.type ?? 'Element'}</small>
                       </span>
-                      <span>{formatMetric(element.metrics.cpuMs)}</span>
+                      <span>{formatMetric(element.metrics.cpuMs, 'ms')}</span>
                       <span>{formatMetric(element.metrics.soqlQueries)}</span>
                       <span>{formatMetric(element.metrics.soqlRows)}</span>
                       <span>{formatMetric(element.metrics.dmlStatements)}</span>
@@ -379,28 +361,15 @@ function AutomationCard({
   );
 }
 
-function MetricTable({
-  metrics,
-}: {
-  metrics: Array<{ label: string; value: string }>;
-}) {
+function SummaryStatList({ stats }: { stats: string[] }) {
   return (
-    <div className="automation-card-metrics" aria-label="Automation metrics">
-      {metrics.map((metric) => (
-        <span className="automation-metric-label" key={`label-${metric.label}`}>
-          {metric.label}
+    <span className="automation-stat-list" aria-label="Automation summary">
+      {stats.map((stat) => (
+        <span className="automation-stat" key={stat}>
+          {stat}
         </span>
       ))}
-      {metrics.map((metric) => (
-        <strong
-          className="automation-metric-value"
-          key={`value-${metric.label}`}
-          title={metric.value}
-        >
-          {metric.value}
-        </strong>
-      ))}
-    </div>
+    </span>
   );
 }
 
@@ -410,20 +379,23 @@ function formatAutomationSubtitle(unit: AutomationUnit): string {
     .join(' - ');
 }
 
-function formatAutomationSummary(unit: AutomationUnit): string {
+function formatAutomationSummaryStats(unit: AutomationUnit): string[] {
   return [
-    `${unit.executionIds.length} runs`,
-    unit.metrics.cpuMs ? `${unit.metrics.cpuMs.value} CPU` : undefined,
+    `Runs: ${unit.executionIds.length.toLocaleString()}`,
+    unit.metrics.cpuMs
+      ? `CPU: ${formatCompactMetric(unit.metrics.cpuMs, 'ms')}`
+      : undefined,
     unit.metrics.durationMs
-      ? `${unit.metrics.durationMs.value} duration`
+      ? `Total: ${formatCompactMetric(unit.metrics.durationMs, 'ms')}`
       : undefined,
     unit.metrics.soqlQueries
-      ? `${unit.metrics.soqlQueries.value} SOQL`
+      ? `SOQL: ${unit.metrics.soqlQueries.value.toLocaleString()}`
       : undefined,
-    unit.metrics.dmlStatements ? `${unit.metrics.dmlStatements.value} DML` : undefined,
+    unit.metrics.dmlStatements
+      ? `DML: ${unit.metrics.dmlStatements.value.toLocaleString()}`
+      : undefined,
   ]
-    .filter(Boolean)
-    .join(' - ');
+    .filter((stat): stat is string => Boolean(stat));
 }
 
 function FlagList({
@@ -513,19 +485,29 @@ function getMetricValue(metric?: AutomationMetric): number {
   return metric?.value ?? 0;
 }
 
-function formatMetric(metric?: AutomationMetric): string {
+function formatMetric(metric?: AutomationMetric, unit?: 'ms'): string {
   if (!metric) {
     return '-';
   }
 
-  const suffix =
-    metric.confidence === 'exact'
-      ? ''
-      : metric.confidence === 'duration'
-        ? ' duration'
-        : ' inferred';
+  const suffixes = [
+    unit,
+    metric.confidence === 'exact' || metric.confidence === 'duration'
+      ? undefined
+      : 'inferred',
+  ].filter(Boolean);
 
-  return `${metric.value.toLocaleString()}${suffix}`;
+  return `${metric.value.toLocaleString()}${
+    suffixes.length > 0 ? ` ${suffixes.join(' ')}` : ''
+  }`;
+}
+
+function formatCompactMetric(metric: AutomationMetric, unit: 'ms'): string {
+  const value = `${metric.value.toLocaleString()}${unit}`;
+
+  return metric.confidence === 'exact' || metric.confidence === 'duration'
+    ? value
+    : `${value} inferred`;
 }
 
 function formatKind(kind: AutomationKind): string {

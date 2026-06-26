@@ -407,10 +407,14 @@ function formatAutomationUnitMetrics(
   unit: LoadedLog['profile']['automation']['units'][number]
 ): string {
   const metrics = [
-    unit.metrics.cpuMs ? `${unit.metrics.cpuMs.value} CPU` : undefined,
-    unit.metrics.durationMs ? `${unit.metrics.durationMs.value} ms` : undefined,
+    unit.metrics.cpuMs
+      ? `${unit.metrics.cpuMs.value.toLocaleString()} ms CPU`
+      : undefined,
+    unit.metrics.durationMs
+      ? `${unit.metrics.durationMs.value.toLocaleString()} ms`
+      : undefined,
     unit.metrics.soqlQueries
-      ? `${unit.metrics.soqlQueries.value} SOQL`
+      ? `${unit.metrics.soqlQueries.value.toLocaleString()} SOQL`
       : undefined,
     unit.metrics.dmlStatements ? `${unit.metrics.dmlStatements.value} DML` : undefined,
   ].filter(Boolean);
