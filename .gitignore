@@ -6,4 +6,4 @@ coverage
 *.vsix
 .wrangler/
 apps/desktop/release/
-apps/vscode/media/
+apps/vscode/media/web/
