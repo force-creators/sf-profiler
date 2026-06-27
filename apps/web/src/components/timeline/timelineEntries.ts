@@ -14,8 +14,7 @@ export function getTimedEntries(profile: ApexLogProfile): ApexLogEntry[] {
     .filter(
       (entry): entry is ApexLogEntry =>
         typeof entry?.duration === 'number' &&
-        (entry.duration > MIN_TIMELINE_DURATION_MS ||
-          isFlowDataEntry(entry)) &&
+        entry.duration > MIN_TIMELINE_DURATION_MS &&
         typeof entry.endTime === 'number' &&
         !SUPPRESSED_TIMELINE_EVENTS.has(entry.event) &&
         entry.type !== 'limit'
@@ -39,35 +38,28 @@ export function getTimelineGroupIds(
     groupIds.push('soql');
   }
 
-  if (isFlowDmlEntry(entry)) {
-    groupIds.push('workflow');
+  if (
+    entry.type === 'apex' ||
+    entry.type === 'workflow' ||
+    entry.type === 'other' ||
+    isFlowDmlEntry(entry) ||
+    isFlowSoqlEntry(entry) ||
+    (entriesById && isFlowSoqlExecutionEntry(entry, entriesById)) ||
+    (entriesById && isApexDmlEntry(entry, entriesById)) ||
+    (entriesById && isApexSoqlEntry(entry, entriesById))
+  ) {
+    groupIds.push('run');
   }
 
-  if (isFlowSoqlEntry(entry)) {
-    groupIds.push('workflow');
+  if (entry.type === 'dml' && !groupIds.includes('dml')) {
+    groupIds.push('dml');
   }
 
-  if (entriesById && isFlowSoqlExecutionEntry(entry, entriesById)) {
-    groupIds.push('workflow');
+  if (entry.type === 'soql' && !groupIds.includes('soql')) {
+    groupIds.push('soql');
   }
 
-  if (entriesById && isApexDmlEntry(entry, entriesById)) {
-    groupIds.push('apex');
-  }
-
-  if (entriesById && isApexSoqlEntry(entry, entriesById)) {
-    groupIds.push('apex');
-  }
-
-  if (groupIds.length > 0) {
-    if (entry.type !== 'workflow' && !groupIds.includes(entry.type)) {
-      groupIds.unshift(entry.type);
-    }
-
-    return groupIds;
-  }
-
-  return [entry.type];
+  return groupIds.length > 0 ? groupIds : ['run'];
 }
 
 export type TimelineFlowRole = {
@@ -181,6 +173,10 @@ function hasFlowElementAncestor(
     entry.parentId === undefined ? undefined : entriesById.get(entry.parentId);
 
   while (current) {
+    if (current.type === 'apex') {
+      return false;
+    }
+
     if (
       current.event === 'FLOW_ELEMENT_BEGIN' ||
       current.event === 'FLOW_BULK_ELEMENT_BEGIN'

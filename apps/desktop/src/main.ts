@@ -23,6 +23,7 @@ const webDistIconPath = app.isPackaged
 const webAssetsIconPath = path.resolve(__dirname, '../../web/assets/icon.ico');
 const preloadPath = path.resolve(__dirname, './preload.js');
 const supportedLogExtensions = new Set(['.log']);
+const devServerUrl = getDevServerUrl();
 
 type WindowContext = {
   window: BrowserWindow;
@@ -59,9 +60,7 @@ async function createWindow(initialLogPath?: string) {
     }
   }
 
-  const iconPath = process.env.VITE_DEV_SERVER_URL
-    ? webAssetsIconPath
-    : webDistIconPath;
+  const iconPath = devServerUrl ? webAssetsIconPath : webDistIconPath;
 
   const window = new BrowserWindow({
     width: 1280,
@@ -100,12 +99,27 @@ async function createWindow(initialLogPath?: string) {
   });
 
   window.webContents.setWindowOpenHandler(({ url }: HandlerDetails) => {
-    shell.openExternal(url);
+    if (isExternalUrlAllowed(url)) {
+      void shell.openExternal(url);
+    }
+
     return { action: 'deny' };
   });
 
-  if (process.env.VITE_DEV_SERVER_URL) {
-    await window.loadURL(process.env.VITE_DEV_SERVER_URL);
+  window.webContents.on('will-navigate', (event, url) => {
+    if (devServerUrl && isSameOrigin(url, devServerUrl)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (isExternalUrlAllowed(url)) {
+      void shell.openExternal(url);
+    }
+  });
+
+  if (devServerUrl) {
+    await window.loadURL(devServerUrl);
     window.webContents.openDevTools({ mode: 'detach' });
   } else {
     await window.loadFile(webDistPath);
@@ -204,6 +218,44 @@ function isSupportedLogPath(filePath: string): boolean {
   const extension = path.extname(filePath).toLowerCase();
 
   return supportedLogExtensions.has(extension);
+}
+
+function getDevServerUrl(): string | undefined {
+  if (app.isPackaged || !process.env.VITE_DEV_SERVER_URL) {
+    return undefined;
+  }
+
+  try {
+    const parsedUrl = new URL(process.env.VITE_DEV_SERVER_URL);
+
+    if (
+      parsedUrl.protocol === 'http:' &&
+      ['127.0.0.1', 'localhost', '[::1]'].includes(parsedUrl.hostname)
+    ) {
+      return parsedUrl.toString();
+    }
+  } catch {
+    // Ignore invalid development URLs and fall back to bundled assets.
+  }
+
+  return undefined;
+}
+
+function isSameOrigin(candidateUrl: string, allowedOriginUrl: string): boolean {
+  try {
+    return new URL(candidateUrl).origin === new URL(allowedOriginUrl).origin;
+  } catch {
+    return false;
+  }
+}
+
+function isExternalUrlAllowed(candidateUrl: string): boolean {
+  try {
+    const { protocol } = new URL(candidateUrl);
+    return protocol === 'https:' || protocol === 'mailto:';
+  } catch {
+    return false;
+  }
 }
 
 function normalizeLogPath(filePath: string): string {

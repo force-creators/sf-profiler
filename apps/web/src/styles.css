@@ -2673,14 +2673,84 @@ button.automation-element-row:focus-visible {
   font-family: inherit;
 }
 
+.vis-time-axis .vis-text {
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 1px 2px;
+  letter-spacing: 0;
+}
+
 .vis-labelset .vis-label {
   color: var(--color-text-secondary);
+}
+
+.timeline-lane-label {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.timeline-lane-stack-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 2px 4px;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.timeline-lane-stack-toggle:hover {
+  color: var(--color-accent-strong);
+  background: var(--color-accent-soft);
+}
+
+.timeline-lane-stack-toggle-icon {
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-1px);
+}
+
+.timeline-lane-stack-toggle-collapsed .timeline-lane-stack-toggle-icon {
+  transform: rotate(-45deg) translateX(-1px);
 }
 
 .vis-item {
   border-width: 1px;
   border-radius: 4px;
   font-size: 12px;
+}
+
+.vis-item.timeline-item-run {
+  color: #27324a;
+  background: #eef2ff;
+  border-color: #9aa8d4;
+}
+
+.vis-item.timeline-item-run.timeline-lane-nested {
+  background:
+    linear-gradient(90deg, rgb(79 70 229 / 12%), rgb(79 70 229 / 2%) 16px),
+    #f3f5ff;
+  border-color: #a6b1de;
+  box-shadow: inset 0 0 0 1px rgb(79 70 229 / 7%);
+}
+
+.vis-item.timeline-item-run.timeline-lane-depth-2,
+.vis-item.timeline-item-run.timeline-lane-depth-3 {
+  background:
+    linear-gradient(90deg, rgb(67 56 202 / 15%), rgb(67 56 202 / 3%) 20px),
+    #e9edff;
+  border-color: #8796cc;
 }
 
 .vis-item.timeline-item-apex {
@@ -2867,6 +2937,27 @@ button.automation-element-row:focus-visible {
   box-shadow: inset 0 0 0 1px rgb(22 163 74 / 10%);
 }
 
+.vis-item.timeline-item-run.timeline-item-soql-mirror,
+.vis-item.timeline-item-run.timeline-flow-element.timeline-item-soql-mirror,
+.vis-item.timeline-item-run.timeline-flow-element.timeline-flow-invoked.timeline-item-soql-mirror {
+  color: #0f3d2a;
+  background: #dcfce7;
+  border-color: #63c786;
+  box-shadow: inset 0 0 0 1px rgb(34 197 94 / 7%);
+}
+
+.vis-item.timeline-item-run.timeline-item-soql-mirror.timeline-lane-nested,
+.vis-item.timeline-item-run.timeline-item-soql-mirror.timeline-lane-depth-2,
+.vis-item.timeline-item-run.timeline-item-soql-mirror.timeline-lane-depth-3,
+.vis-item.timeline-item-run.timeline-flow-invoked.timeline-item-soql-mirror.timeline-depth-2,
+.vis-item.timeline-item-run.timeline-flow-invoked.timeline-item-soql-mirror.timeline-depth-3 {
+  background:
+    linear-gradient(90deg, rgb(22 163 74 / 14%), rgb(22 163 74 / 2%) 20px),
+    #e8fcef;
+  border-color: #55bb7b;
+  box-shadow: inset 0 0 0 1px rgb(22 163 74 / 10%);
+}
+
 .vis-item.timeline-flow-invoked .vis-item-content {
   padding-left: 8px;
 }
@@ -2944,6 +3035,28 @@ button.automation-element-row:focus-visible {
 :root[data-theme='dark'] .vis-time-axis .vis-grid.vis-major,
 :root[data-theme='dark'] .vis-foreground .vis-group {
   border-color: #33363a;
+}
+
+:root[data-theme='dark'] .vis-item.timeline-item-run {
+  color: #dce4ff;
+  background: #333b58;
+  border-color: #66749f;
+}
+
+:root[data-theme='dark'] .vis-item.timeline-item-run.timeline-lane-nested {
+  background:
+    linear-gradient(90deg, rgb(165 180 252 / 16%), rgb(165 180 252 / 3%) 16px),
+    #394362;
+  border-color: #7d8cb9;
+  box-shadow: inset 0 0 0 1px rgb(165 180 252 / 8%);
+}
+
+:root[data-theme='dark'] .vis-item.timeline-item-run.timeline-lane-depth-2,
+:root[data-theme='dark'] .vis-item.timeline-item-run.timeline-lane-depth-3 {
+  background:
+    linear-gradient(90deg, rgb(199 210 254 / 18%), rgb(199 210 254 / 4%) 20px),
+    #404b6d;
+  border-color: #93a1cc;
 }
 
 :root[data-theme='dark'] .vis-item.timeline-item-apex {
@@ -3119,6 +3232,27 @@ button.automation-element-row:focus-visible {
 
 :root[data-theme='dark'] .vis-item.timeline-flow-invoked.timeline-item-soql-mirror.timeline-depth-2,
 :root[data-theme='dark'] .vis-item.timeline-flow-invoked.timeline-item-soql-mirror.timeline-depth-3 {
+  background:
+    linear-gradient(90deg, rgb(134 239 172 / 16%), rgb(134 239 172 / 3%) 20px),
+    #28583f;
+  border-color: #67ad83;
+  box-shadow: inset 0 0 0 1px rgb(134 239 172 / 10%);
+}
+
+:root[data-theme='dark'] .vis-item.timeline-item-run.timeline-item-soql-mirror,
+:root[data-theme='dark'] .vis-item.timeline-item-run.timeline-flow-element.timeline-item-soql-mirror,
+:root[data-theme='dark'] .vis-item.timeline-item-run.timeline-flow-element.timeline-flow-invoked.timeline-item-soql-mirror {
+  color: #d4fbe2;
+  background: #1f4735;
+  border-color: #4f9b73;
+  box-shadow: inset 0 0 0 1px rgb(74 222 128 / 8%);
+}
+
+:root[data-theme='dark'] .vis-item.timeline-item-run.timeline-item-soql-mirror.timeline-lane-nested,
+:root[data-theme='dark'] .vis-item.timeline-item-run.timeline-item-soql-mirror.timeline-lane-depth-2,
+:root[data-theme='dark'] .vis-item.timeline-item-run.timeline-item-soql-mirror.timeline-lane-depth-3,
+:root[data-theme='dark'] .vis-item.timeline-item-run.timeline-flow-invoked.timeline-item-soql-mirror.timeline-depth-2,
+:root[data-theme='dark'] .vis-item.timeline-item-run.timeline-flow-invoked.timeline-item-soql-mirror.timeline-depth-3 {
   background:
     linear-gradient(90deg, rgb(134 239 172 / 16%), rgb(134 239 172 / 3%) 20px),
     #28583f;

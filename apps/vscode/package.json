@@ -1,0 +1,94 @@
+{
+  "name": "sf-profiler",
+  "displayName": "SF Profiler",
+  "description": "Profile Salesforce Apex debug logs for Apex, Flow, SOQL, DML, and governor limits from VS Code.",
+  "version": "0.1.1",
+  "type": "commonjs",
+  "publisher": "force-creators",
+  "author": {
+    "name": "Matthew Swing-McKenzie"
+  },
+  "homepage": "https://sfprofiler.com/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/force-creators/sf-profiler.git",
+    "directory": "apps/vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/force-creators/sf-profiler/issues"
+  },
+  "license": "UNLICENSED",
+  "icon": "media/web/icon.png",
+  "files": [
+    "dist/**",
+    "media/overview/**",
+    "media/web/**",
+    "README.md",
+    "package.json"
+  ],
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Debuggers",
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "salesforce",
+    "apex",
+    "debug log",
+    "profiler",
+    "recursion",
+    "performance",
+    "automation",
+    "governor limits",
+    "soql",
+    "dml",
+    "flow"
+  ],
+  "activationEvents": [
+    "onCommand:sfdc-profiler.profileLog"
+  ],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "prebuild": "node ../../scripts/sync-workspace-versions.mjs",
+    "build": "npm run build:web && npm run copy:web && tsc -p tsconfig.json",
+    "build:web": "npm run build -w @sfdc-profiler/web",
+    "copy:web": "node ./scripts/copy-web-dist.mjs",
+    "package": "vsce package --no-dependencies --skip-license",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "vscode:prepublish": "npm run build",
+    "watch": "tsc -w -p tsconfig.json"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "sfdc-profiler.profileLog",
+        "title": "Profile Log",
+        "category": "SF Profiler"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "sfdc-profiler.profileLog",
+          "group": "navigation",
+          "when": "resourceExtname == .log"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "sfdc-profiler.profileLog",
+          "group": "navigation",
+          "when": "resourceExtname == .log"
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.6.3",
+    "@types/node": "^22.15.21",
+    "@types/vscode": "^1.90.0"
+  }
+}

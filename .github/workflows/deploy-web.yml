@@ -34,6 +34,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Sync workspace versions
+        run: npm run sync:versions
+
       - name: Typecheck web app
         run: npm run typecheck -w @sfdc-profiler/web
 

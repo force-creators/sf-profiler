@@ -12,14 +12,18 @@ import type { LoadedLog, ViewId } from '../../types';
 
 export function AppHeader({
   activeView,
+  hideRawLog = false,
   loadedLog,
   onReturnHome,
   onViewChange,
+  showHomeButton = true,
 }: {
   activeView: ViewId;
+  hideRawLog?: boolean;
   loadedLog: LoadedLog;
   onReturnHome: () => void;
   onViewChange: (viewId: ViewId) => void;
+  showHomeButton?: boolean;
 }) {
   const latestCpuSample = loadedLog.profile.limits[limitTypes.cpuTime]?.at(-1);
   const cpuTimeLabel = latestCpuSample ? `${latestCpuSample.current} ms` : '-';
@@ -27,19 +31,27 @@ export function AppHeader({
   return (
     <header className="summary-band">
       <div className="summary-band-heading">
-        <button
-          aria-label="Return to home"
-          className="summary-band-home-button"
-          onClick={onReturnHome}
-          title="Return to home"
-          type="button"
-        >
+        {showHomeButton ? (
+          <button
+            aria-label="Return to home"
+            className="summary-band-home-button"
+            onClick={onReturnHome}
+            title="Return to home"
+            type="button"
+          >
+            <img
+              className="summary-band-icon"
+              src="./icon.png"
+              alt="SF Profiler"
+            />
+          </button>
+        ) : (
           <img
             className="summary-band-icon"
             src="./icon.png"
             alt="SF Profiler"
           />
-        </button>
+        )}
         <div className="summary-band-heading-copy">
           <h2>{getActiveViewTitle(activeView)}</h2>
           <span className="eyebrow summary-band-log-name">
@@ -80,14 +92,16 @@ export function AppHeader({
           <Gauge size={16} aria-hidden="true" />
           Limits
         </button>
-        <button
-          className={activeView === 'rawLog' ? 'active' : ''}
-          type="button"
-          onClick={() => onViewChange('rawLog')}
-        >
-          <FileText size={16} aria-hidden="true" />
-          Raw Log
-        </button>
+        {!hideRawLog && (
+          <button
+            className={activeView === 'rawLog' ? 'active' : ''}
+            type="button"
+            onClick={() => onViewChange('rawLog')}
+          >
+            <FileText size={16} aria-hidden="true" />
+            Log
+          </button>
+        )}
         <button
           className={`icon-only${activeView === 'settings' ? ' active' : ''}`}
           type="button"
@@ -136,7 +150,7 @@ function getActiveViewTitle(activeView: ViewId): string {
   }
 
   if (activeView === 'rawLog') {
-    return 'Raw Log';
+    return 'Log';
   }
 
   if (activeView === 'settings') {

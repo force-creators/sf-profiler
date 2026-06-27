@@ -13,15 +13,18 @@ import {
   Timeline,
   type DataGroup,
   type DataItem,
+  type TimelineEventPropertiesResult,
   type TimelineOptions,
 } from 'vis-timeline/standalone';
 import 'vis-timeline/styles/vis-timeline-graph2d.css';
+import { limitTypes } from '@sfdc-profiler/core';
 import type {
   ApexLogEntry,
   ApexLogProfile,
   AutomationMetrics,
   FlowLimitUsage,
   FlowLimitUsageMetrics,
+  LimitDetail,
   LimitUsageSnapshot,
 } from '@sfdc-profiler/core';
 import {
@@ -44,6 +47,27 @@ import {
 import { timelineGroups, type TimelineGroupId } from './timelineGroups';
 
 type TimelineItemId = number | string;
+type TimelineDataItem = DataItem & {
+  timelineOrder: number;
+};
+type CodeUnitLimitUsage = Partial<
+  Record<
+    | 'soqlQueries'
+    | 'soqlRows'
+    | 'dmlStatements'
+    | 'dmlRows'
+    | 'cpuMs'
+    | 'heapSize'
+    | 'callouts'
+    | 'future'
+    | 'queueable'
+    | 'publishImmediate',
+    LimitUsageSnapshot
+  >
+>;
+
+const TIMELINE_LANE_SUBGROUP_ID = 'lane';
+const TIMELINE_LANE_STACK_CONTROL_SUBGROUP_ID = 'lane-stack-control';
 
 export function TimelineView({
   isExpanded = false,
@@ -60,7 +84,7 @@ export function TimelineView({
   isActive: boolean;
   onCollapseChange?: (isCollapsed: boolean) => void;
   onExpandedChange?: (isExpanded: boolean) => void;
-  onJumpToRawLogLine: (lineNumber: number) => void;
+  onJumpToRawLogLine?: (lineNumber: number) => void;
   onOpenAutomation: (unitId: string) => void;
   onShowInLimits: (entryId: number) => void;
   profile: ApexLogProfile;
@@ -68,9 +92,13 @@ export function TimelineView({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const timelineRef = useRef<Timeline | null>(null);
+  const zoomedTimelineEntryIdRef = useRef<number | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<ApexLogEntry>();
   const [isTimelineCollapsed, setIsTimelineCollapsed] = useState(false);
   const [isTimelineRendering, setIsTimelineRendering] = useState(true);
+  const [collapsedTimelineLaneIds, setCollapsedTimelineLaneIds] = useState<
+    Set<TimelineGroupId>
+  >(() => new Set(['soql', 'dml']));
   const [renderedTimelineProfile, setRenderedTimelineProfile] =
     useState<ApexLogProfile | null>(null);
   const timedEntries = useMemo(() => getTimedEntries(profile), [profile]);
@@ -81,8 +109,30 @@ export function TimelineView({
   const isTimelineRenderPending =
     isTimelineRendering || renderedTimelineProfile !== profile;
   const refreshTimelineView = useCallback(() => {
-    timelineRef.current?.redraw();
-    timelineRef.current?.fit({ animation: false });
+    const timeline = timelineRef.current;
+
+    if (!timeline) {
+      return;
+    }
+
+    const visibleWindow = timeline.getWindow();
+    timeline.redraw();
+    timeline.setWindow(visibleWindow.start, visibleWindow.end, {
+      animation: false,
+    });
+  }, []);
+  const toggleTimelineLaneStack = useCallback((groupId: TimelineGroupId) => {
+    setCollapsedTimelineLaneIds((collapsedLaneIds) => {
+      const nextCollapsedLaneIds = new Set(collapsedLaneIds);
+
+      if (nextCollapsedLaneIds.has(groupId)) {
+        nextCollapsedLaneIds.delete(groupId);
+      } else {
+        nextCollapsedLaneIds.add(groupId);
+      }
+
+      return nextCollapsedLaneIds;
+    });
   }, []);
 
   useEffect(() => {
@@ -97,6 +147,7 @@ export function TimelineView({
     setSelectedEntry(undefined);
     setIsTimelineRendering(true);
     setRenderedTimelineProfile(null);
+    zoomedTimelineEntryIdRef.current = null;
     timelineRef.current?.destroy();
     timelineRef.current = null;
 
@@ -117,32 +168,40 @@ export function TimelineView({
 
       const itemById = new Map<TimelineItemId, ApexLogEntry>();
       const groups = new DataSet<DataGroup>(
-        timelineGroups.filter((group) =>
-          timedEntries.some((entry) =>
-            getTimelineGroupIds(entry, entriesById).includes(group.id)
-          )
+        getVisibleTimelineGroups(
+          timedEntries,
+          entriesById,
+          collapsedTimelineLaneIds
         )
       );
-      const items = new DataSet<DataItem>(
+      const items = new DataSet<TimelineDataItem>(
         timedEntries.flatMap((entry) => {
           itemById.set(entry.id, entry);
           const flowRole = getTimelineFlowRole(entry, entriesById);
+          const primaryGroupId = getTimelinePrimaryGroupId(entry);
 
-          const primaryItem: DataItem = {
+          const primaryItem: TimelineDataItem = {
             id: entry.id,
-            className: getTimelineItemClassName(entry, entriesById, entry.type, flowRole),
+            className: getTimelineItemClassName(
+              entry,
+              entriesById,
+              primaryGroupId,
+              flowRole
+            ),
             content: formatTimelineContent(entry),
             end: entry.endTime,
-            group: entry.type,
+            group: primaryGroupId,
             start: entry.time,
+            subgroup: getTimelineSubgroupId(entry, primaryGroupId),
             title: formatTimelineTitle(entry, {
               entriesById,
               includeFlowPath: true,
             }),
             type: 'range',
+            timelineOrder: getTimelineItemOrder(entry, primaryGroupId),
           };
 
-          const flowDataItems: DataItem[] = [];
+          const flowDataItems: TimelineDataItem[] = [];
 
           if (isFlowDmlEntry(entry)) {
             flowDataItems.push({
@@ -154,6 +213,8 @@ export function TimelineView({
               }),
               end: getTimelineVisualEnd(entry),
               group: 'dml' satisfies TimelineGroupId,
+              subgroup: getTimelineSubgroupId(entry, 'dml'),
+              timelineOrder: getTimelineItemOrder(entry, 'dml'),
               title: formatTimelineTitle(entry, {
                 entriesById,
                 flowDmlCopy: true,
@@ -167,7 +228,7 @@ export function TimelineView({
               className: `${getTimelineItemClassName(
                 entry,
                 entriesById,
-                'workflow',
+                'run',
                 flowRole
               )} timeline-item-dml-mirror`,
               content: formatTimelineContent(entry, {
@@ -176,7 +237,9 @@ export function TimelineView({
                 flowElementOnly: true,
               }),
               end: getTimelineVisualEnd(entry),
-              group: 'workflow' satisfies TimelineGroupId,
+              group: 'run' satisfies TimelineGroupId,
+              subgroup: getTimelineSubgroupId(entry, 'run'),
+              timelineOrder: getTimelineItemOrder(entry, 'run'),
               title: formatTimelineTitle(entry, {
                 entriesById,
                 flowDmlCopy: true,
@@ -198,6 +261,8 @@ export function TimelineView({
               }),
               end: getTimelineVisualEnd(entry),
               group: 'soql' satisfies TimelineGroupId,
+              subgroup: getTimelineSubgroupId(entry, 'soql'),
+              timelineOrder: getTimelineItemOrder(entry, 'soql'),
               title: formatTimelineTitle(entry, {
                 entriesById,
                 flowSoqlCopy: true,
@@ -212,7 +277,7 @@ export function TimelineView({
               className: `${getTimelineItemClassName(
                 entry,
                 entriesById,
-                'workflow',
+                'run',
                 flowRole
               )} timeline-item-soql-mirror`,
               content: formatTimelineContent(entry, {
@@ -221,7 +286,9 @@ export function TimelineView({
                 flowSoqlCopy: true,
               }),
               end: getTimelineVisualEnd(entry),
-              group: 'workflow' satisfies TimelineGroupId,
+              group: 'run' satisfies TimelineGroupId,
+              subgroup: getTimelineSubgroupId(entry, 'run'),
+              timelineOrder: getTimelineItemOrder(entry, 'run'),
               title: formatTimelineTitle(entry, {
                 entriesById,
                 flowElementOnly: true,
@@ -232,7 +299,7 @@ export function TimelineView({
             itemById.set(`flow-workflow-soql-${entry.id}`, entry);
           }
 
-          const flowSoqlExecutionItem: DataItem | undefined =
+          const flowSoqlExecutionItem: TimelineDataItem | undefined =
             isFlowSoqlExecutionEntry(entry, entriesById)
               ? {
                   ...primaryItem,
@@ -240,7 +307,7 @@ export function TimelineView({
                   className: `${getTimelineItemClassName(
                     entry,
                     entriesById,
-                    'workflow',
+                    'run',
                     flowRole
                   )} timeline-item-soql-mirror`,
                   content: formatTimelineContent(entry, {
@@ -249,7 +316,9 @@ export function TimelineView({
                     flowSoqlCopy: true,
                   }),
                   end: getTimelineVisualEnd(entry),
-                  group: 'workflow' satisfies TimelineGroupId,
+                  group: 'run' satisfies TimelineGroupId,
+                  subgroup: getTimelineSubgroupId(entry, 'run'),
+                  timelineOrder: getTimelineItemOrder(entry, 'run'),
                   title: formatTimelineTitle(entry, {
                     entriesById,
                     flowElementOnly: true,
@@ -263,7 +332,7 @@ export function TimelineView({
             itemById.set(`flow-workflow-soql-${entry.id}`, entry);
           }
 
-          const apexDataItem: DataItem | undefined =
+          const apexDataItem: TimelineDataItem | undefined =
             isApexDmlEntry(entry, entriesById) || isApexSoqlEntry(entry, entriesById)
             ? {
                 ...primaryItem,
@@ -271,11 +340,14 @@ export function TimelineView({
                 className: `${getTimelineItemClassName(
                   entry,
                   entriesById,
-                  'apex'
+                  'run'
                 )}${entry.type === 'dml' ? ' timeline-item-dml-mirror' : ''}${
                   entry.type === 'soql' ? ' timeline-item-soql-mirror' : ''
                 }`,
-                group: 'apex' satisfies TimelineGroupId,
+                content: primaryItem.content,
+                group: 'run' satisfies TimelineGroupId,
+                subgroup: getTimelineSubgroupId(entry, 'run'),
+                timelineOrder: getTimelineItemOrder(entry, 'run'),
                 title: formatTimelineTitle(entry, {
                   entriesById,
                   includeFlowPath: true,
@@ -330,10 +402,16 @@ export function TimelineView({
         selectable: true,
         showCurrentTime: false,
         stack: true,
+        stackSubgroups: true,
         start: 0,
         verticalScroll: true,
         zoomable: true,
         zoomKey: 'ctrlKey',
+        order: compareTimelineItems,
+        groupTemplate: createTimelineGroupTemplate(
+          collapsedTimelineLaneIds,
+          toggleTimelineLaneStack
+        ),
       };
 
       timeline = new Timeline(containerRef.current, items, groups, options);
@@ -343,6 +421,25 @@ export function TimelineView({
         setSelectedEntry(itemById.get(selectedItems[0]));
         }
       );
+      timeline.on('doubleClick', (properties: TimelineEventPropertiesResult) => {
+        const entry =
+          properties.item === null || properties.item === undefined
+            ? undefined
+            : itemById.get(properties.item);
+
+        if (!entry) {
+          return;
+        }
+
+        if (zoomedTimelineEntryIdRef.current === entry.id) {
+          timeline?.fit({ animation: false });
+          zoomedTimelineEntryIdRef.current = null;
+          return;
+        }
+
+        zoomTimelineToEntry(timeline, entry);
+        zoomedTimelineEntryIdRef.current = entry.id;
+      });
       timelineRef.current = timeline;
       timeline.fit({ animation: false });
       setRenderedTimelineProfile(profile);
@@ -367,7 +464,13 @@ export function TimelineView({
         timelineRef.current = null;
       }
     };
-  }, [entriesById, profile, timedEntries]);
+  }, [
+    collapsedTimelineLaneIds,
+    entriesById,
+    profile,
+    timedEntries,
+    toggleTimelineLaneStack,
+  ]);
 
   useEffect(() => {
     if (!isActive) {
@@ -698,13 +801,15 @@ export function TimelineView({
               </div>
             </dl>
             <div className="timeline-detail-actions">
-              <button
-                className="timeline-detail-action timeline-detail-action-secondary"
-                onClick={() => onJumpToRawLogLine(selectedEntry.lineNumber)}
-                type="button"
-              >
-                Jump to Raw Log Line {selectedEntry.lineNumber}
-              </button>
+              {onJumpToRawLogLine && (
+                <button
+                  className="timeline-detail-action timeline-detail-action-secondary"
+                  onClick={() => onJumpToRawLogLine(selectedEntry.lineNumber)}
+                  type="button"
+                >
+                  Jump to Raw Log Line {selectedEntry.lineNumber}
+                </button>
+              )}
               {selectedAutomationUnitId && (
                 <button
                   className="timeline-detail-action timeline-detail-action-secondary"
@@ -729,6 +834,91 @@ export function TimelineView({
       )}
     </div>
   );
+}
+
+function getVisibleTimelineGroups(
+  timedEntries: ApexLogEntry[],
+  entriesById: Map<number, ApexLogEntry>,
+  collapsedLaneIds: Set<TimelineGroupId>
+): DataGroup[] {
+  return timelineGroups
+    .filter((group) =>
+      timedEntries.some((entry) =>
+        getTimelineGroupIds(entry, entriesById).includes(group.id)
+      )
+    )
+    .map((group) => {
+      const isCollapsed = collapsedLaneIds.has(group.id);
+      const subgroupStack =
+        group.id === 'run' && !isCollapsed
+          ? false
+          : {
+              [TIMELINE_LANE_SUBGROUP_ID]: !isCollapsed,
+              ...(isCollapsed
+                ? { [TIMELINE_LANE_STACK_CONTROL_SUBGROUP_ID]: true }
+                : {}),
+            };
+
+      return {
+        ...group,
+        subgroupStack,
+      };
+    });
+}
+
+function createTimelineGroupTemplate(
+  collapsedLaneIds: Set<TimelineGroupId>,
+  onToggleLaneStack: (groupId: TimelineGroupId) => void
+) {
+  return (group?: DataGroup): HTMLElement => {
+    const groupId = group?.id as TimelineGroupId | undefined;
+    const content =
+      typeof group?.content === 'string' ? group.content : String(groupId ?? '');
+    const isCollapsed = groupId ? collapsedLaneIds.has(groupId) : false;
+    const wrapper = document.createElement('div');
+    const button = document.createElement('button');
+    const icon = document.createElement('span');
+    const label = document.createElement('span');
+
+    wrapper.className = 'timeline-lane-label';
+    button.className = `timeline-lane-stack-toggle${
+      isCollapsed ? ' timeline-lane-stack-toggle-collapsed' : ''
+    }`;
+    button.type = 'button';
+    button.ariaExpanded = String(!isCollapsed);
+    button.ariaLabel = `${isCollapsed ? 'Expand' : 'Collapse'} ${content} lane`;
+    button.title = `${isCollapsed ? 'Expand' : 'Collapse'} ${content} lane`;
+    button.addEventListener('pointerdown', (event) => event.stopPropagation());
+    button.addEventListener('mousedown', (event) => event.stopPropagation());
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (groupId) {
+        onToggleLaneStack(groupId);
+      }
+    });
+
+    icon.className = 'timeline-lane-stack-toggle-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    label.textContent = content;
+
+    button.append(icon, label);
+    wrapper.appendChild(button);
+
+    return wrapper;
+  };
+}
+
+function zoomTimelineToEntry(timeline: Timeline | null, entry: ApexLogEntry): void {
+  if (!timeline) {
+    return;
+  }
+
+  const start = entry.time;
+  const end = Math.max(entry.endTime ?? entry.time, start + 1);
+
+  timeline.setWindow(start, end, { animation: false });
 }
 
 function getFlowDataLabels(entry: ApexLogEntry): string[] {
@@ -837,12 +1027,12 @@ function getCodeUnitLimitRows(
   }
 
   const executions = findCodeUnitExecutions(entry, profile);
+  const limitUsage = getCodeUnitLimitUsage(entry, profile);
 
-  if (executions.length === 0) {
-    return [];
-  }
-
-  return getAutomationMetricRows(aggregateAutomationMetrics(executions));
+  return getAutomationMetricRows(
+    aggregateAutomationMetrics(executions),
+    limitUsage
+  );
 }
 
 function isCodeUnitDetailEntry(entry: ApexLogEntry): boolean {
@@ -966,28 +1156,107 @@ function aggregateAutomationMetrics(
 }
 
 function getAutomationMetricRows(
-  metrics: AutomationMetrics
+  metrics: AutomationMetrics,
+  limitUsage: CodeUnitLimitUsage = {}
 ): Array<{ label: string; value: string }> {
-  const rows: Array<[string, number | undefined, string?]> = [
-    ['SOQL Queries', metrics.soqlQueries?.value],
-    ['SOQL Rows', metrics.soqlRows?.value],
-    ['DML Statements', metrics.dmlStatements?.value],
-    ['DML Rows', metrics.dmlRows?.value],
-    ['CPU Time', metrics.cpuMs?.value, ' ms'],
+  const rows: Array<
+    [
+      string,
+      number | undefined,
+      LimitUsageSnapshot | undefined,
+      string?,
+    ]
+  > = [
+    ['SOQL Queries', metrics.soqlQueries?.value, limitUsage.soqlQueries],
+    ['SOQL Rows', metrics.soqlRows?.value, limitUsage.soqlRows],
+    ['DML Statements', metrics.dmlStatements?.value, limitUsage.dmlStatements],
+    ['DML Rows', metrics.dmlRows?.value, limitUsage.dmlRows],
+    ['CPU Time', metrics.cpuMs?.value, limitUsage.cpuMs, ' ms'],
+    ['Heap Size', undefined, limitUsage.heapSize],
+    ['Callouts', undefined, limitUsage.callouts],
+    ['Future Calls', undefined, limitUsage.future],
+    ['Queueable Jobs', undefined, limitUsage.queueable],
+    ['Publish Immediate DML', undefined, limitUsage.publishImmediate],
   ];
 
-  return rows.flatMap(([label, value, unit = '']) => {
-    if (typeof value !== 'number' || value === 0) {
+  return rows.flatMap(([label, value, usage, unit = '']) => {
+    if ((typeof value !== 'number' || value === 0) && !usage) {
+      return [];
+    }
+
+    const consumed = typeof value === 'number' ? value : usage?.current;
+
+    if (typeof consumed !== 'number') {
       return [];
     }
 
     return [
       {
         label,
-        value: `${value.toLocaleString()}${unit}`,
+        value: formatLimitUsage(consumed, usage, unit),
       },
     ];
   });
+}
+
+function getCodeUnitLimitUsage(
+  entry: ApexLogEntry,
+  profile: ApexLogProfile
+): CodeUnitLimitUsage {
+  const usage: CodeUnitLimitUsage = {};
+  const startTime = entry.time;
+  const endTime = entry.endTime ?? entry.time;
+  const limitSamples = Object.values(profile.limits).flatMap(
+    (samples) => samples ?? []
+  );
+
+  for (const sample of limitSamples) {
+    if (sample.time < startTime || sample.time > endTime) {
+      continue;
+    }
+
+    const key = getCodeUnitLimitUsageKey(sample);
+
+    if (!key) {
+      continue;
+    }
+
+    usage[key] = {
+      current: sample.current,
+      max: sample.max,
+    };
+  }
+
+  return usage;
+}
+
+function getCodeUnitLimitUsageKey(
+  sample: LimitDetail
+): keyof CodeUnitLimitUsage | undefined {
+  switch (sample.name) {
+    case limitTypes.soqlQueries:
+      return 'soqlQueries';
+    case limitTypes.soqlQueryRows:
+      return 'soqlRows';
+    case limitTypes.dmlStatements:
+      return 'dmlStatements';
+    case limitTypes.dmlRows:
+      return 'dmlRows';
+    case limitTypes.cpuTime:
+      return 'cpuMs';
+    case limitTypes.heapSize:
+      return 'heapSize';
+    case limitTypes.callouts:
+      return 'callouts';
+    case limitTypes.future:
+      return 'future';
+    case limitTypes.queueable:
+      return 'queueable';
+    case limitTypes.dmlPublishImmediate:
+      return 'publishImmediate';
+    default:
+      return undefined;
+  }
 }
 
 function getDatabaseLimitUsageRows(
@@ -1075,13 +1344,63 @@ function getSoqlLimitUsageRows(
 
 function formatLimitUsage(
   consumed: number,
-  usage: LimitUsageSnapshot | undefined
+  usage: LimitUsageSnapshot | undefined,
+  unit = ''
 ): string {
   if (!usage) {
-    return consumed.toLocaleString();
+    return `${consumed.toLocaleString()}${unit}`;
   }
 
-  return `${consumed.toLocaleString()} (${usage.current.toLocaleString()} / ${usage.max.toLocaleString()})`;
+  return `${consumed.toLocaleString()}${unit} (${usage.current.toLocaleString()} / ${usage.max.toLocaleString()})`;
+}
+
+function getTimelinePrimaryGroupId(entry: ApexLogEntry): TimelineGroupId {
+  if (entry.type === 'soql' || entry.type === 'dml') {
+    return entry.type;
+  }
+
+  return 'run';
+}
+
+function compareTimelineItems(left: TimelineDataItem, right: TimelineDataItem): number {
+  return (
+    left.timelineOrder - right.timelineOrder ||
+    getTimelineItemStart(left) - getTimelineItemStart(right) ||
+    String(left.id ?? '').localeCompare(String(right.id ?? ''))
+  );
+}
+
+function getTimelineItemOrder(
+  entry: ApexLogEntry,
+  groupId: TimelineGroupId
+): number {
+  return entry.lineNumber * 10 + getTimelineGroupOrderBias(groupId);
+}
+
+function getTimelineSubgroupId(
+  entry: ApexLogEntry,
+  groupId: TimelineGroupId
+): string {
+  if (groupId !== 'run') {
+    return TIMELINE_LANE_SUBGROUP_ID;
+  }
+
+  return `run-${getTimelineItemOrder(entry, groupId)}`;
+}
+
+function getTimelineGroupOrderBias(groupId: TimelineGroupId): number {
+  switch (groupId) {
+    case 'run':
+      return 0;
+    case 'soql':
+      return 1;
+    case 'dml':
+      return 2;
+  }
+}
+
+function getTimelineItemStart(item: TimelineDataItem): number {
+  return typeof item.start === 'number' ? item.start : Number(item.start);
 }
 
 function getTimelineItemClassName(
@@ -1123,16 +1442,19 @@ function getTimelineNestingDepth(
   entriesById: Map<number, ApexLogEntry>,
   groupId: TimelineGroupId
 ): number {
-  if (groupId === 'workflow') {
-    return 0;
-  }
-
   let depth = 0;
   let current =
     entry.parentId === undefined ? undefined : entriesById.get(entry.parentId);
 
   while (current) {
-    if (current.type === groupId) {
+    if (
+      groupId === 'run' &&
+      (current.type === 'apex' ||
+        current.type === 'workflow' ||
+        current.type === 'other')
+    ) {
+      depth += 1;
+    } else if (current.type === groupId) {
       depth += 1;
     } else if (groupId === 'dml' && current.type === 'workflow') {
       depth += 1;

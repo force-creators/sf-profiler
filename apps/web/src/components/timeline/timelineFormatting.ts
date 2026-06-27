@@ -61,11 +61,7 @@ function getTimelineLabel(
   }
 
   if (
-    options.flowSoqlCopy &&
-    (isFlowSoqlEntry(entry) ||
-      (options.entriesById
-        ? Boolean(findNearestFlowElement(entry, options.entriesById))
-        : false))
+    options.flowSoqlCopy
   ) {
     const nearestElement = options.entriesById
       ? findNearestFlowElement(entry, options.entriesById)
@@ -94,6 +90,10 @@ export function findNearestFlowName(
   let current: ApexLogEntry | undefined = entry;
 
   while (current) {
+    if (current !== entry && current.type === 'apex') {
+      return undefined;
+    }
+
     const flowName = current.metadata?.flow?.flowName;
 
     if (flowName) {
@@ -119,6 +119,10 @@ export function findNearestFlowElement(
   let current: ApexLogEntry | undefined = entry;
 
   while (current) {
+    if (current !== entry && current.type === 'apex') {
+      return undefined;
+    }
+
     if (
       current.event === 'FLOW_ELEMENT_BEGIN' ||
       current.event === 'FLOW_BULK_ELEMENT_BEGIN'

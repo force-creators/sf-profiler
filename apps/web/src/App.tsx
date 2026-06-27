@@ -45,6 +45,9 @@ import type {
 } from './types';
 
 export function App() {
+  const vscodeInitialLogRef = useRef(window.sfdcVsCode?.initialLog);
+  const vscodeInitialThemeRef = useRef(window.sfdcVsCode?.initialTheme);
+  const isVsCodeHost = vscodeInitialLogRef.current !== undefined;
   const [loadedLog, setLoadedLog] = useState<LoadedLog>();
   const [activeView, setActiveView] = useState<ViewId>('summary');
   const [theme, setTheme] = useState<AppTheme>('light');
@@ -98,7 +101,25 @@ export function App() {
   }, []);
 
   const applyLoadedLog = useCallback(
-    async (fileName: string, rawText: string) => {
+    async (
+      fileName: string,
+      rawText: string,
+      options: { persist?: boolean } = {}
+    ) => {
+      const shouldPersist = options.persist ?? !isVsCodeHost;
+
+      if (!shouldPersist) {
+        const profile = parseApexLog(rawText, {
+          sourceName: fileName,
+          performanceThresholds,
+        });
+
+        setLoadedLog({ fileName, rawText, profile });
+        resetViewSelections();
+
+        return;
+      }
+
       const existingLogMatch = await findStoredLogByRawText(rawText);
 
       if (existingLogMatch) {
@@ -133,12 +154,17 @@ export function App() {
 
       await persistLoadedLog(nextLoadedLog);
     },
-    [performanceThresholds, resetViewSelections]
+    [isVsCodeHost, performanceThresholds, resetViewSelections]
   );
 
   useEffect(() => {
+    if (isVsCodeHost) {
+      setTheme(vscodeInitialThemeRef.current ?? 'light');
+      return;
+    }
+
     setTheme(readStoredTheme());
-  }, []);
+  }, [isVsCodeHost]);
 
   useEffect(() => {
     performanceThresholdsRef.current = performanceThresholds;
@@ -155,14 +181,25 @@ export function App() {
   }, [loadedLog]);
 
   useEffect(() => {
-    if (!loadedLog) {
-      return;
+    const vscodeInitialLog = vscodeInitialLogRef.current;
+
+    if (vscodeInitialLog) {
+      const profile = parseApexLog(vscodeInitialLog.rawText, {
+        sourceName: vscodeInitialLog.fileName,
+        performanceThresholds: performanceThresholdsRef.current,
+      });
+
+      setLoadedLog({
+        fileName: vscodeInitialLog.fileName,
+        rawText: vscodeInitialLog.rawText,
+        profile,
+      });
+      resetViewSelections();
+      setIsRestoringLog(false);
+
+      return undefined;
     }
 
-    console.info('[SF Profiler model]', createConsoleDebugModel(loadedLog));
-  }, [loadedLog]);
-
-  useEffect(() => {
     let isCancelled = false;
 
     async function restorePersistedLog() {
@@ -330,6 +367,10 @@ export function App() {
   }
 
   function openRawLogAtLine(lineNumber: number) {
+    if (isVsCodeHost) {
+      return;
+    }
+
     setRawLogJumpRequest({ lineNumber, nonce: Date.now() });
     setActiveView('rawLog');
   }
@@ -414,8 +455,10 @@ export function App() {
           <>
             <AppHeader
               activeView={activeView}
+              hideRawLog={isVsCodeHost}
               loadedLog={loadedLog}
               onReturnHome={handleReturnHome}
+              showHomeButton={!isVsCodeHost}
               onViewChange={setActiveView}
             />
 
@@ -453,7 +496,9 @@ export function App() {
                   <TimelineView
                     isExpanded={isSummaryTimelineExpanded}
                     isActive={activeView === 'summary'}
-                    onJumpToRawLogLine={openRawLogAtLine}
+                    onJumpToRawLogLine={
+                      isVsCodeHost ? undefined : openRawLogAtLine
+                    }
                     onCollapseChange={handleSummaryTimelineCollapseChange}
                     onExpandedChange={setIsSummaryTimelineExpanded}
                     onOpenAutomation={openAutomationView}
@@ -510,55 +555,4 @@ export function App() {
       </section>
     </main>
   );
-}
-
-function createConsoleDebugModel(loadedLog: LoadedLog) {
-  const flowElementsByEntryId = new Map<
-    number,
-    Array<{
-      id: string;
-      metrics: LoadedLog['profile']['automation']['elements'][number]['metrics'];
-      name: string;
-      type?: string;
-    }>
-  >();
-
-  for (const element of loadedLog.profile.automation.elements) {
-    for (const entryId of element.entryIds) {
-      const entries = flowElementsByEntryId.get(entryId) ?? [];
-      entries.push({
-        id: element.id,
-        metrics: element.metrics,
-        name: element.name,
-        type: element.type,
-      });
-      flowElementsByEntryId.set(entryId, entries);
-    }
-  }
-
-  const flowElementEntries = loadedLog.profile.entries
-    .filter(
-      (entry) =>
-        entry.event === 'FLOW_ELEMENT_BEGIN' ||
-        entry.event === 'FLOW_BULK_ELEMENT_BEGIN'
-    )
-    .map((entry) => ({
-      id: entry.id,
-      event: entry.event,
-      detail: entry.detail,
-      duration: entry.duration,
-      endTime: entry.endTime,
-      lineNumber: entry.lineNumber,
-      metadata: entry.metadata,
-      time: entry.time,
-      automationElements: flowElementsByEntryId.get(entry.id) ?? [],
-    }));
-
-  return {
-    fileName: loadedLog.fileName,
-    profile: loadedLog.profile,
-    timelineDiagnostics: {
-      flowElementEntries,
-    },
-  };
 }

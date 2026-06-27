@@ -1,6 +1,6 @@
 {
   "name": "sfdc-profiler",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -8,16 +8,26 @@
     "apps/*"
   ],
   "scripts": {
+    "prebuild": "npm run sync:versions",
     "build": "npm run build --workspaces --if-present",
     "dev": "npm run dev -w @sfdc-profiler/web",
     "dev:desktop": "npm run dev -w @sfdc-profiler/desktop",
+    "dev:vscode": "npm run build -w sf-profiler",
     "deploy:web": "npm run build -w @sfdc-profiler/web && npx wrangler deploy --name sfdc-profiler-web --assets apps/web/dist",
     "deploy:mac": "npm run dist:mac -w @sfdc-profiler/desktop",
+    "build:vscode": "npm run package -w sf-profiler",
+    "build:vscode:patch": "npm version patch --no-git-tag-version && npm run build:vscode",
+    "package:vscode": "npm run package -w sf-profiler",
+    "sync:versions": "node ./scripts/sync-workspace-versions.mjs",
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "version": "npm run sync:versions"
   },
   "engines": {
     "node": ">=20"
+  },
+  "overrides": {
+    "dompurify": "3.4.11"
   },
   "devDependencies": {
     "typescript": "^5.8.3"
