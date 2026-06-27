@@ -1,5 +1,19 @@
-import { limitTypes, type LimitDetail, type LimitType } from './limits';
-import { field } from './parserFields';
+import { limitTypes, type LimitDetail, type LimitType } from '../../limits';
+import type { ApexLogEntry, ApexLogProfile } from '../../types';
+import { field } from '../lines/fields';
+
+export class LimitSeriesCollector {
+  readonly limits: ApexLogProfile['limits'] = {};
+
+  record(entry: ApexLogEntry) {
+    if (!entry.limitDetail) {
+      return;
+    }
+
+    this.limits[entry.limitDetail.name] ??= [];
+    this.limits[entry.limitDetail.name]?.push(entry.limitDetail);
+  }
+}
 
 export function parseLimit(
   raw: string,
