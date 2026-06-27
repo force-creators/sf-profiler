@@ -6,28 +6,33 @@
     <title>Salesforce Flow Debugging from Debug Logs | SF Profiler</title>
     <meta
       name="description"
-      content="Debug Salesforce Flow behavior in transaction logs with SF Profiler. Trace Flow paths, record updates, recursion signals, DML, SOQL, CPU time, and governor limits locally."
+      content="Debug Salesforce Flow behavior in transaction logs with SF Profiler. Trace Flow paths, recursion, DML, SOQL, CPU time, and limits locally."
     />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <link rel="canonical" href="https://sfprofiler.com/salesforce-flow-debugging/" />
     <link rel="icon" href="../icon.ico" sizes="any" />
     <link rel="icon" type="image/png" href="../icon.png" />
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="SF Profiler" />
     <meta property="og:title" content="Salesforce Flow Debugging from Debug Logs | SF Profiler" />
     <meta
       property="og:description"
-      content="Trace Flow activity, record updates, automation paths, SOQL, DML, and limits in Salesforce debug logs."
+      content="Trace Flow activity, record updates, automation paths, recursion, SOQL, DML, and limits in Salesforce debug logs."
     />
     <meta property="og:url" content="https://sfprofiler.com/salesforce-flow-debugging/" />
-    <meta property="og:image" content="https://sfprofiler.com/icon.png" />
+    <meta property="og:image" content="https://sfprofiler.com/images/seo/sf-profiler-social.png" />
+    <meta property="og:image:width" content="2256" />
+    <meta property="og:image:height" content="1165" />
+    <meta property="og:image:alt" content="SF Profiler recursion insights view for Salesforce debug logs" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Salesforce Flow Debugging from Debug Logs | SF Profiler" />
     <meta
       name="twitter:description"
-      content="Use SF Profiler to inspect Flow execution in Salesforce debug logs without uploading log data."
+      content="Use SF Profiler to inspect Flow execution, recursion, and limit usage in Salesforce debug logs without uploading log data."
     />
-    <meta name="twitter:image" content="https://sfprofiler.com/icon.png" />
+    <meta name="twitter:image" content="https://sfprofiler.com/images/seo/sf-profiler-social.png" />
+    <meta name="twitter:image:alt" content="SF Profiler recursion insights view for Salesforce debug logs" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -140,7 +145,7 @@
 
       <h2>Trace automation in context</h2>
       <p>
-        SF Profiler surfaces Flow and workflow activity on the same timeline as Apex, database calls, and limit samples. That context helps when a Flow update triggers more automation, creates repeated DML, or contributes to CPU time.
+        SF Profiler surfaces Flow and workflow activity on the same timeline as Apex, database calls, and limit samples. That context helps when a Flow update triggers more automation, creates repeated DML, consumes SOQL or DML limits, or contributes to CPU time.
       </p>
 
       <h2>Find recursion and repeated paths</h2>
@@ -159,6 +164,8 @@
       <nav aria-label="Related SF Profiler pages">
         <a href="../salesforce-debug-log-analyzer/">Salesforce debug log analyzer</a>
         <a href="../apex-log-profiler/">Apex log profiler</a>
+        <a href="../salesforce-recursion-debugging/">Salesforce recursion debugging</a>
+        <a href="../salesforce-flow-limits/">Salesforce Flow limit usage</a>
         <a href="../governor-limits-analysis/">Governor limits analysis</a>
       </nav>
     </main>

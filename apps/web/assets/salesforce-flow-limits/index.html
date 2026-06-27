@@ -3,33 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Salesforce Governor Limits Analysis | SF Profiler</title>
+    <title>Salesforce Flow Limit Usage Analysis | SF Profiler</title>
     <meta
       name="description"
-      content="Analyze Salesforce governor limits in debug logs with SF Profiler. Review CPU, heap, SOQL, DML, callouts, async jobs, and Flow usage locally."
+      content="Analyze Salesforce Flow limit usage in debug logs with SF Profiler. Review Flow CPU time, SOQL, DML, row usage, recursion, and automation impact locally."
     />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
-    <link rel="canonical" href="https://sfprofiler.com/governor-limits-analysis/" />
+    <link rel="canonical" href="https://sfprofiler.com/salesforce-flow-limits/" />
     <link rel="icon" href="../icon.ico" sizes="any" />
     <link rel="icon" type="image/png" href="../icon.png" />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="SF Profiler" />
-    <meta property="og:title" content="Salesforce Governor Limits Analysis | SF Profiler" />
+    <meta property="og:title" content="Salesforce Flow Limit Usage Analysis | SF Profiler" />
     <meta
       property="og:description"
-      content="Review CPU, heap, SOQL, DML, callout, queueable, future, and publish-immediate limits from Salesforce debug logs."
+      content="Review Flow CPU time, SOQL, DML, row usage, recursion, and automation impact from Salesforce debug logs."
     />
-    <meta property="og:url" content="https://sfprofiler.com/governor-limits-analysis/" />
+    <meta property="og:url" content="https://sfprofiler.com/salesforce-flow-limits/" />
     <meta property="og:image" content="https://sfprofiler.com/images/seo/sf-profiler-social.png" />
     <meta property="og:image:width" content="2256" />
     <meta property="og:image:height" content="1165" />
     <meta property="og:image:alt" content="SF Profiler recursion insights view for Salesforce debug logs" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Salesforce Governor Limits Analysis | SF Profiler" />
+    <meta name="twitter:title" content="Salesforce Flow Limit Usage Analysis | SF Profiler" />
     <meta
       name="twitter:description"
-      content="Use SF Profiler to understand governor limit usage in Salesforce debug logs without uploading logs."
+      content="Use SF Profiler to inspect Flow limit usage in Salesforce debug logs without uploading log data."
     />
     <meta name="twitter:image" content="https://sfprofiler.com/images/seo/sf-profiler-social.png" />
     <meta name="twitter:image:alt" content="SF Profiler recursion insights view for Salesforce debug logs" />
@@ -37,9 +37,9 @@
       {
         "@context": "https://schema.org",
         "@type": "WebPage",
-        "name": "Salesforce Governor Limits Analysis",
-        "url": "https://sfprofiler.com/governor-limits-analysis/",
-        "description": "SF Profiler analyzes Salesforce governor limit samples in debug logs, including CPU time, heap, SOQL, DML, callouts, queueable jobs, future calls, and publish-immediate usage.",
+        "name": "Salesforce Flow Limit Usage Analysis",
+        "url": "https://sfprofiler.com/salesforce-flow-limits/",
+        "description": "SF Profiler analyzes Salesforce Flow limit usage from debug logs, including Flow CPU time, SOQL queries, SOQL rows, DML statements, DML rows, recursion signals, and automation impact.",
         "isPartOf": {
           "@type": "SoftwareApplication",
           "name": "SF Profiler",
@@ -137,33 +137,33 @@
         <strong>SF Profiler</strong>
       </header>
 
-      <h1>Salesforce governor limits analysis from debug logs</h1>
+      <h1>Salesforce Flow limit usage analysis from debug logs</h1>
       <p class="lead">
-        Governor limits are shared by the work inside a Salesforce transaction. SF Profiler helps connect limit samples to Apex, Flow, SOQL, DML, callouts, async work, and other activity found in the debug log.
+        Flow automation shares transaction governor limits with Apex, triggers, workflow, and database work. SF Profiler reads Flow limit usage from Salesforce debug logs and connects that usage to the broader transaction profile.
       </p>
       <a class="button" href="../">Open SF Profiler</a>
 
-      <h2>Review the limits that matter</h2>
+      <h2>Review Flow usage signals</h2>
       <p>
-        The limits view groups samples for CPU time, heap, SOQL queries and rows, DML statements and rows, callouts, future calls, queueable jobs, publish-immediate DML, and Flow limit usage when the log includes it. That makes it easier to see whether a transaction is failing because of one expensive step or many smaller operations.
+        When the debug log includes Flow usage events, SF Profiler can surface CPU time, SOQL queries, SOQL rows, DML statements, and DML rows for Flow interviews and elements. Those metrics make it easier to see which automation step is consuming shared limits.
       </p>
 
-      <h2>Move from symptom to source</h2>
+      <h2>Compare Flow with Apex and database work</h2>
       <p>
-        Limit usage is most useful when it is connected to execution context. SF Profiler keeps timeline entries, summaries, database operations, and raw log details close together so you can move from a high CPU or SOQL count to the events that contributed to it.
+        Flow limit usage is most useful when it is not isolated from the rest of the transaction. SF Profiler keeps Flow, Apex, SOQL, DML, recursion insights, and governor limit samples in one local profile so you can compare where the budget went.
       </p>
 
-      <h2>Analyze privately</h2>
+      <h2>Keep investigation local</h2>
       <p>
-        Debug logs often contain details from real orgs and transactions. SF Profiler processes the log locally in your browser or desktop app, so you can investigate governor limits without sending the file to another service.
+        Debug logs often include record values, org details, customer identifiers, and production context. SF Profiler processes logs in the browser or desktop app, which helps troubleshoot Flow limits without sending the file to another service.
       </p>
 
       <nav aria-label="Related SF Profiler pages">
         <a href="../salesforce-debug-log-analyzer/">Salesforce debug log analyzer</a>
         <a href="../salesforce-flow-debugging/">Salesforce Flow debugging</a>
         <a href="../salesforce-recursion-debugging/">Salesforce recursion debugging</a>
-        <a href="../salesforce-flow-limits/">Salesforce Flow limit usage</a>
         <a href="../apex-log-profiler/">Apex log profiler</a>
+        <a href="../governor-limits-analysis/">Governor limits analysis</a>
       </nav>
     </main>
   </body>

@@ -1,5 +1,5 @@
 /*
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://img.buymeacoffee.com; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'; form-action 'none'
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'sha256-svmT89zYzh8NAEqEMvesQ7FGqiTdPvLoeXddGihlo2E=' 'sha256-xI0AJVZHbRKnThIPeVUazEM19R8/ktNPw9kZ9+cQtG4=' 'sha256-jW+cJGo62PJ3OZ7Lia7f8yuluuRxiFj+wgqK05Xl5k0=' 'sha256-Mpm6DKoOtDP89wUIBrOmJKDqQLb5eeuCQlmiQbD5fQE=' 'sha256-uijXGUoh/UExCNXrRwDhEd/Z/nwHHtzU6RF2txFfgI4=' 'sha256-tiBZ/Ixv4Vt87n5pLrkIV5uS4nvaLLowwJZiGDFqRNo=' 'sha256-bSJz0oVE6eGm/DXMRyzg+80YAy3bhSNtwWRLuOWW1go='; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://img.buymeacoffee.com; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'; form-action 'none'
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=()
   Referrer-Policy: strict-origin-when-cross-origin
   X-Content-Type-Options: nosniff

@@ -9,7 +9,7 @@ complete but practically unreadable. It turns dense execution traces into a
 timeline, targeted insights, and limit views that make automation behavior much
 easier to explain.
 
-![SF Profiler summary timeline](media/overview/summary-timeline-light.png)
+![SF Profiler summary screen](https://raw.githubusercontent.com/force-creators/sf-profiler/main/apps/vscode/media/overview/summary-headline.png)
 
 ## Why It Helps
 
@@ -31,7 +31,7 @@ The Insights view is where SF Profiler starts to earn its keep. It can identify
 probable automation recursion, show the detected cycle, call out likely causes,
 and list the path through Flow and DML that produced the loop.
 
-![Recursion insights view](media/overview/recursion-insights-light.png)
+![Recursion insights view](https://raw.githubusercontent.com/force-creators/sf-profiler/main/apps/vscode/media/overview/recursion-insights-light.png)
 
 This is especially useful for record-triggered Flow, Process Builder leftovers,
 managed package automation, and mixed Apex/declarative transactions where the
@@ -44,7 +44,7 @@ actually moved the counters. Repeated queries are grouped together, row counts
 and timings stay visible, and you can jump from the symptoms back into the
 timeline.
 
-![SOQL limits view](media/overview/limits-soql-light.png)
+![SOQL limits view](https://raw.githubusercontent.com/force-creators/sf-profiler/main/apps/vscode/media/overview/limits-soql-light.png)
 
 ## Timeline For The Whole Transaction
 
@@ -52,7 +52,7 @@ The timeline connects the transaction in execution order: Apex, Workflow/Flow,
 SOQL, DML, and other events. It is designed for the “what happened first?” and
 “why did this happen again?” questions that raw debug logs make painful.
 
-![Dark mode summary view](media/overview/summary-dark.png)
+![Dark mode summary view](https://raw.githubusercontent.com/force-creators/sf-profiler/main/apps/vscode/media/overview/summary-dark.png)
 
 SF Profiler also follows your VS Code light or dark theme when the profile tab
 opens.
@@ -64,21 +64,3 @@ opens.
 3. Choose **Profile Log**.
 
 The profile opens in a normal editor tab.
-
-## Local Development
-
-From the repository root:
-
-```sh
-npm run build:vscode
-```
-
-To bump the patch version and build the VSIX in one command:
-
-```sh
-npm run build:vscode:patch
-```
-
-Then open the repository in VS Code and run the `Run SF Profiler Extension`
-debug configuration. In the Extension Development Host window, right-click a
-`.log` file in Explorer or in the editor and choose `Profile Log`.
