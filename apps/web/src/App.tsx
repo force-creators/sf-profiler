@@ -155,6 +155,14 @@ export function App() {
   }, [loadedLog]);
 
   useEffect(() => {
+    if (!loadedLog) {
+      return;
+    }
+
+    console.info('[SF Profiler model]', createConsoleDebugModel(loadedLog));
+  }, [loadedLog]);
+
+  useEffect(() => {
     let isCancelled = false;
 
     async function restorePersistedLog() {
@@ -501,4 +509,55 @@ export function App() {
       </section>
     </main>
   );
+}
+
+function createConsoleDebugModel(loadedLog: LoadedLog) {
+  const flowElementsByEntryId = new Map<
+    number,
+    Array<{
+      id: string;
+      metrics: LoadedLog['profile']['automation']['elements'][number]['metrics'];
+      name: string;
+      type?: string;
+    }>
+  >();
+
+  for (const element of loadedLog.profile.automation.elements) {
+    for (const entryId of element.entryIds) {
+      const entries = flowElementsByEntryId.get(entryId) ?? [];
+      entries.push({
+        id: element.id,
+        metrics: element.metrics,
+        name: element.name,
+        type: element.type,
+      });
+      flowElementsByEntryId.set(entryId, entries);
+    }
+  }
+
+  const flowElementEntries = loadedLog.profile.entries
+    .filter(
+      (entry) =>
+        entry.event === 'FLOW_ELEMENT_BEGIN' ||
+        entry.event === 'FLOW_BULK_ELEMENT_BEGIN'
+    )
+    .map((entry) => ({
+      id: entry.id,
+      event: entry.event,
+      detail: entry.detail,
+      duration: entry.duration,
+      endTime: entry.endTime,
+      lineNumber: entry.lineNumber,
+      metadata: entry.metadata,
+      time: entry.time,
+      automationElements: flowElementsByEntryId.get(entry.id) ?? [],
+    }));
+
+  return {
+    fileName: loadedLog.fileName,
+    profile: loadedLog.profile,
+    timelineDiagnostics: {
+      flowElementEntries,
+    },
+  };
 }

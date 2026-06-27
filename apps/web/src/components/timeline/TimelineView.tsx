@@ -16,15 +16,26 @@ import {
   type TimelineOptions,
 } from 'vis-timeline/standalone';
 import 'vis-timeline/styles/vis-timeline-graph2d.css';
-import type { ApexLogEntry, ApexLogProfile } from '@sfdc-profiler/core';
+import type {
+  ApexLogEntry,
+  ApexLogProfile,
+  FlowLimitUsage,
+  FlowLimitUsageMetrics,
+} from '@sfdc-profiler/core';
 import {
   getTimelineFlowRole,
+  getTimelineFlowDataByEntryId,
   getTimedEntries,
   getTimelineGroupIds,
-  isFlowRecordUpdateBulkEntry,
+  isFlowDmlEntry,
+  isFlowSoqlEntry,
   type TimelineFlowRole,
 } from './timelineEntries';
-import { formatTimelineContent, formatTimelineTitle } from './timelineFormatting';
+import {
+  findNearestFlowName,
+  formatTimelineContent,
+  formatTimelineTitle,
+} from './timelineFormatting';
 import { timelineGroups, type TimelineGroupId } from './timelineGroups';
 
 type TimelineItemId = number | string;
@@ -56,6 +67,14 @@ export function TimelineView({
   const [renderedTimelineProfile, setRenderedTimelineProfile] =
     useState<ApexLogProfile | null>(null);
   const timedEntries = useMemo(() => getTimedEntries(profile), [profile]);
+  const entriesById = useMemo(
+    () => new Map(profile.entries.map((entry) => [entry.id, entry])),
+    [profile]
+  );
+  const flowDataByEntryId = useMemo(
+    () => getTimelineFlowDataByEntryId(profile),
+    [profile]
+  );
   const isTimelineRenderPending =
     isTimelineRendering || renderedTimelineProfile !== profile;
   const refreshTimelineView = useCallback(() => {
@@ -94,10 +113,11 @@ export function TimelineView({
       }
 
       const itemById = new Map<TimelineItemId, ApexLogEntry>();
-      const entriesById = new Map(profile.entries.map((entry) => [entry.id, entry]));
       const groups = new DataSet<DataGroup>(
         timelineGroups.filter((group) =>
-          timedEntries.some((entry) => getTimelineGroupIds(entry).includes(group.id))
+          timedEntries.some((entry) =>
+            getTimelineGroupIds(entry, flowDataByEntryId).includes(group.id)
+          )
         )
       );
       const items = new DataSet<DataItem>(
@@ -105,7 +125,7 @@ export function TimelineView({
           itemById.set(entry.id, entry);
           const flowRole = getTimelineFlowRole(entry, entriesById);
 
-          const primaryItem = {
+          const primaryItem: DataItem = {
             id: entry.id,
             className: getTimelineItemClassName(entry, entriesById, entry.type, flowRole),
             content: formatTimelineContent(entry),
@@ -119,33 +139,55 @@ export function TimelineView({
             type: 'range',
           };
 
-          if (!isFlowRecordUpdateBulkEntry(entry)) {
-            return [primaryItem];
-          }
+          const flowDataItems: DataItem[] = [];
 
-          const flowDmlItemId = `flow-dml-${entry.id}`;
-          itemById.set(flowDmlItemId, entry);
-
-          return [
-            primaryItem,
-            {
-              id: flowDmlItemId,
+          if (isFlowDmlEntry(entry, flowDataByEntryId)) {
+            flowDataItems.push({
+              ...primaryItem,
               className: getTimelineItemClassName(entry, entriesById, 'dml'),
               content: formatTimelineContent(entry, {
                 entriesById,
                 flowDmlCopy: true,
+                flowDataByEntryId,
               }),
-              end: entry.endTime,
-              group: 'dml',
-              start: entry.time,
+              end: getTimelineVisualEnd(entry),
+              group: 'dml' satisfies TimelineGroupId,
               title: formatTimelineTitle(entry, {
                 entriesById,
                 flowDmlCopy: true,
+                flowDataByEntryId,
                 includeFlowPath: true,
               }),
-              type: 'range',
-            },
-          ];
+            });
+          }
+
+          if (isFlowSoqlEntry(entry, flowDataByEntryId)) {
+            flowDataItems.push({
+              ...primaryItem,
+              id: `flow-soql-${entry.id}`,
+              className: getTimelineItemClassName(entry, entriesById, 'soql'),
+              content: formatTimelineContent(entry, {
+                entriesById,
+                flowDataByEntryId,
+                flowSoqlCopy: true,
+              }),
+              end: getTimelineVisualEnd(entry),
+              group: 'soql' satisfies TimelineGroupId,
+              title: formatTimelineTitle(entry, {
+                entriesById,
+                flowDataByEntryId,
+                flowSoqlCopy: true,
+                includeFlowPath: true,
+              }),
+            });
+            itemById.set(`flow-soql-${entry.id}`, entry);
+          }
+
+          if (flowDataItems.length > 0) {
+            return flowDataItems;
+          }
+
+          return [primaryItem];
         })
       );
       const options: TimelineOptions = {
@@ -213,7 +255,7 @@ export function TimelineView({
         timelineRef.current = null;
       }
     };
-  }, [profile, timedEntries]);
+  }, [entriesById, flowDataByEntryId, profile, timedEntries]);
 
   useEffect(() => {
     if (!isActive) {
@@ -347,6 +389,15 @@ export function TimelineView({
   }
 
   const hasSelection = Boolean(selectedEntry);
+  const selectedFlowName = selectedEntry
+    ? findNearestFlowName(selectedEntry, entriesById)
+    : undefined;
+  const selectedFlowDataLabels = selectedEntry
+    ? getFlowDataLabels(selectedEntry)
+    : [];
+  const selectedFlowLimitRows = selectedEntry
+    ? getFlowLimitUsageRows(selectedEntry.metadata?.flow?.usage)
+    : [];
 
   function clearSelection() {
     setSelectedEntry(undefined);
@@ -459,6 +510,39 @@ export function TimelineView({
                 <dt>Detail</dt>
                 <dd>{selectedEntry.detail || selectedEntry.type}</dd>
               </div>
+              {selectedFlowName && (
+                <div>
+                  <dt>Flow</dt>
+                  <dd>{selectedFlowName}</dd>
+                </div>
+              )}
+              {selectedEntry.metadata?.flow?.elementType && (
+                <div>
+                  <dt>Flow Element</dt>
+                  <dd>{selectedEntry.metadata.flow.elementType}</dd>
+                </div>
+              )}
+              {selectedFlowDataLabels.length > 0 && (
+                <div>
+                  <dt>Flow Data</dt>
+                  <dd>{selectedFlowDataLabels.join(', ')}</dd>
+                </div>
+              )}
+              {selectedFlowLimitRows.length > 0 && (
+                <div>
+                  <dt>Limits Consumed</dt>
+                  <dd>
+                    <ul className="timeline-detail-metrics">
+                      {selectedFlowLimitRows.map((row) => (
+                        <li key={row.label}>
+                          <span>{row.label}</span>
+                          <span>{row.value}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt>Time</dt>
                 <dd>
@@ -499,6 +583,43 @@ export function TimelineView({
   );
 }
 
+function getFlowDataLabels(entry: ApexLogEntry): string[] {
+  return (entry.metadata?.flow?.dataOperations ?? []).map((operation) =>
+    operation === 'soql' ? 'SOQL Query' : 'DML'
+  );
+}
+
+function getFlowLimitUsageRows(
+  usage: FlowLimitUsageMetrics | undefined
+): Array<{ label: string; value: string }> {
+  if (!usage) {
+    return [];
+  }
+
+  const rows: Array<[string, FlowLimitUsage | undefined]> = [
+    ['SOQL Queries', usage.soqlQueries],
+    ['SOQL Rows', usage.soqlRows],
+    ['DML Statements', usage.dmlStatements],
+    ['DML Rows', usage.dmlRows],
+    ['CPU Time', usage.cpuMs],
+  ];
+
+  return rows.flatMap(([label, limitUsage]) => {
+    if (!limitUsage) {
+      return [];
+    }
+
+    const unit = label === 'CPU Time' ? ' ms' : '';
+
+    return [
+      {
+        label,
+        value: `${limitUsage.consumed.toLocaleString()}${unit} (${limitUsage.current.toLocaleString()} / ${limitUsage.max.toLocaleString()})`,
+      },
+    ];
+  });
+}
+
 function getTimelineItemClassName(
   entry: ApexLogEntry,
   entriesById: Map<number, ApexLogEntry>,
@@ -527,6 +648,10 @@ function getTimelineItemClassName(
   }
 
   return classNames.join(' ');
+}
+
+function getTimelineVisualEnd(entry: ApexLogEntry): number {
+  return Math.max(entry.endTime ?? entry.time, entry.time + 1);
 }
 
 function getTimelineNestingDepth(

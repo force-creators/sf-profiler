@@ -42,12 +42,30 @@ export type ApexLogEntryMetadata = {
     object?: string;
     elementType?: string;
     elementName?: string;
+    dataOperations?: FlowDataOperation[];
+    usage?: FlowLimitUsageMetrics;
   };
 };
 
 export type LimitUsageSnapshot = {
   current: number;
   max: number;
+};
+
+export type FlowDataOperation = 'soql' | 'dml';
+
+export type FlowLimitUsage = {
+  consumed: number;
+  current: number;
+  max: number;
+};
+
+export type FlowLimitUsageMetrics = {
+  cpuMs?: FlowLimitUsage;
+  soqlQueries?: FlowLimitUsage;
+  soqlRows?: FlowLimitUsage;
+  dmlStatements?: FlowLimitUsage;
+  dmlRows?: FlowLimitUsage;
 };
 
 export type SoqlExecution = {

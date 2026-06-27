@@ -1,9 +1,15 @@
 import type { ApexLogEntry } from '@sfdc-profiler/core';
-import { isFlowRecordUpdateBulkEntry } from './timelineEntries';
+import {
+  isFlowDmlEntry,
+  isFlowSoqlEntry,
+  type TimelineFlowDataMetrics,
+} from './timelineEntries';
 
 type TimelineFormattingOptions = {
   entriesById?: Map<number, ApexLogEntry>;
   flowDmlCopy?: boolean;
+  flowDataByEntryId?: Map<number, TimelineFlowDataMetrics>;
+  flowSoqlCopy?: boolean;
   includeFlowPath?: boolean;
 };
 
@@ -39,7 +45,10 @@ function getTimelineLabel(
   entry: ApexLogEntry,
   options: TimelineFormattingOptions
 ): string {
-  if (options.flowDmlCopy && isFlowRecordUpdateBulkEntry(entry)) {
+  if (
+    options.flowDmlCopy &&
+    isFlowDmlEntry(entry, options.flowDataByEntryId)
+  ) {
     const flowName = options.entriesById
       ? findNearestFlowName(entry, options.entriesById)
       : undefined;
@@ -48,10 +57,22 @@ function getTimelineLabel(
     return [flowName, elementName].filter(Boolean).join(': ') || 'Flow Update';
   }
 
+  if (
+    options.flowSoqlCopy &&
+    isFlowSoqlEntry(entry, options.flowDataByEntryId)
+  ) {
+    const flowName = options.entriesById
+      ? findNearestFlowName(entry, options.entriesById)
+      : undefined;
+    const elementName = entry.metadata?.flow?.elementName ?? entry.detail;
+
+    return [flowName, elementName].filter(Boolean).join(': ') || 'Flow Lookup';
+  }
+
   return entry.detail || entry.event || entry.type;
 }
 
-function findNearestFlowName(
+export function findNearestFlowName(
   entry: ApexLogEntry,
   entriesById: Map<number, ApexLogEntry>
 ): string | undefined {

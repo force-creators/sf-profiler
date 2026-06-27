@@ -2573,6 +2573,26 @@ button.automation-element-row:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.timeline-detail-metrics {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.timeline-detail-metrics li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.timeline-detail-metrics li span:last-child {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .timeline-detail-title {
   display: flex;
   width: 100%;

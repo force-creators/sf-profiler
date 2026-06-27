@@ -267,6 +267,63 @@ describe('parseApexLog', () => {
         dmlRows: { value: 2, confidence: 'exact' },
       },
     });
+
+    const updateEntry = profile.entries.find(
+      (entry) =>
+        entry.event === 'FLOW_BULK_ELEMENT_BEGIN' &&
+        entry.metadata?.flow?.elementName === 'Update_Contacts'
+    );
+
+    expect(updateEntry?.metadata?.flow).toMatchObject({
+      elementType: 'FlowRecordUpdate',
+      dataOperations: ['dml'],
+      usage: {
+        cpuMs: { consumed: 8, current: 30, max: 15000 },
+        soqlQueries: { consumed: 1, current: 3, max: 100 },
+        soqlRows: { consumed: 4, current: 9, max: 50000 },
+        dmlStatements: { consumed: 1, current: 2, max: 150 },
+        dmlRows: { consumed: 2, current: 5, max: 10000 },
+      },
+    });
+  });
+
+  it('identifies flow record lookups as SOQL with consumed limit metadata', () => {
+    const profile = parseApexLog(
+      [
+        '59.0 APEX_CODE,FINEST',
+        '12:00:00.0 (1000000)|EXECUTION_STARTED',
+        '12:00:00.0 (2000000)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Account',
+        '12:00:00.0 (3000000)|FLOW_CREATE_INTERVIEW_END|account-1|Account Automation',
+        '12:00:00.0 (4000000)|FLOW_START_INTERVIEW_BEGIN|account-1|Account Automation',
+        '12:00:00.0 (5000000)|FLOW_ELEMENT_BEGIN|account-1|FlowRecordLookup|Find_Contacts',
+        '12:00:00.0 (6000000)|FLOW_ELEMENT_END|account-1|FlowRecordLookup|Find_Contacts',
+        '12:00:00.0 (7000000)|FLOW_START_INTERVIEW_END|account-1|Account Automation',
+        '12:00:00.0 (8000000)|FLOW_BULK_ELEMENT_BEGIN|FlowRecordLookup|Find_Contacts',
+        '12:00:00.0 (9000000)|FLOW_BULK_ELEMENT_LIMIT_USAGE|1 SOQL queries, total 1 out of 100',
+        '12:00:00.0 (9100000)|FLOW_BULK_ELEMENT_LIMIT_USAGE|3 SOQL query rows, total 3 out of 50000',
+        '12:00:00.0 (9200000)|FLOW_BULK_ELEMENT_LIMIT_USAGE|5 ms CPU time, total 25 out of 15000',
+        '12:00:00.0 (10000000)|FLOW_BULK_ELEMENT_END|FlowRecordLookup|Find_Contacts|3|2',
+        '12:00:00.0 (11000000)|FLOW_INTERVIEW_FINISHED|account-1|Account Automation',
+        '12:00:00.0 (12000000)|CODE_UNIT_FINISHED|Flow:Account',
+        '12:00:00.0 (13000000)|EXECUTION_FINISHED',
+      ].join('\n')
+    );
+
+    const lookupEntry = profile.entries.find(
+      (entry) =>
+        entry.event === 'FLOW_BULK_ELEMENT_BEGIN' &&
+        entry.metadata?.flow?.elementName === 'Find_Contacts'
+    );
+
+    expect(lookupEntry?.metadata?.flow).toMatchObject({
+      elementType: 'FlowRecordLookup',
+      dataOperations: ['soql'],
+      usage: {
+        cpuMs: { consumed: 5, current: 25, max: 15000 },
+        soqlQueries: { consumed: 1, current: 1, max: 100 },
+        soqlRows: { consumed: 3, current: 3, max: 50000 },
+      },
+    });
   });
 
   it('aggregates trigger automation duration and descendant database work', () => {
