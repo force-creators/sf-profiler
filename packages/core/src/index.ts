@@ -20,6 +20,7 @@ export type {
   FlowLimitUsage,
   FlowLimitUsageMetrics,
   SoqlExecution,
+  LimitUsageSnapshot,
   LogEntryType,
   ParseApexLogOptions,
   PerformanceInsightCategory,

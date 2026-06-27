@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ChevronDown,
@@ -50,6 +50,8 @@ export function AutomationView({
   const [expandedUnitIds, setExpandedUnitIds] = useState<Set<string>>(
     () => new Set(automation.units[0]?.id ? [automation.units[0].id] : [])
   );
+  const cardRefs = useRef(new Map<string, HTMLLIElement>());
+  const jumpTargetUnitId = jumpRequest?.unitId;
   const unitsById = useMemo(
     () => new Map(automation.units.map((unit) => [unit.id, unit])),
     [automation.units]
@@ -110,6 +112,25 @@ export function AutomationView({
     setActiveTab(getTabForUnit(unit));
     setExpandedUnitIds(new Set([unit.id]));
   }, [jumpRequest, unitsById]);
+
+  useEffect(() => {
+    if (!jumpTargetUnitId) {
+      return undefined;
+    }
+
+    if (!visibleUnits.some((unit) => unit.id === jumpTargetUnitId)) {
+      return undefined;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      cardRefs.current.get(jumpTargetUnitId)?.scrollIntoView({
+        block: 'start',
+        behavior: 'smooth',
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [jumpRequest?.nonce, jumpTargetUnitId, visibleUnits]);
 
   useEffect(() => {
     setExpandedUnitIds((currentIds) => {
@@ -189,7 +210,19 @@ export function AutomationView({
           </header>
           <ol className="automation-card-list">
             {visibleUnits.map((unit) => (
-              <li key={unit.id}>
+              <li
+                className={
+                  unit.id === jumpTargetUnitId ? 'automation-card-jump-target' : ''
+                }
+                key={unit.id}
+                ref={(node) => {
+                  if (node) {
+                    cardRefs.current.set(unit.id, node);
+                  } else {
+                    cardRefs.current.delete(unit.id);
+                  }
+                }}
+              >
                 <AutomationCard
                   elements={elementsByUnitId.get(unit.id) ?? []}
                   executions={executionsByUnitId.get(unit.id) ?? []}

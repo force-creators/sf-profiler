@@ -19,12 +19,13 @@ import 'vis-timeline/styles/vis-timeline-graph2d.css';
 import type {
   ApexLogEntry,
   ApexLogProfile,
+  AutomationMetrics,
   FlowLimitUsage,
   FlowLimitUsageMetrics,
+  LimitUsageSnapshot,
 } from '@sfdc-profiler/core';
 import {
   getTimelineFlowRole,
-  getTimelineFlowDataByEntryId,
   getTimedEntries,
   getTimelineGroupIds,
   isApexDmlEntry,
@@ -50,6 +51,7 @@ export function TimelineView({
   onCollapseChange,
   onExpandedChange,
   onJumpToRawLogLine,
+  onOpenAutomation,
   onShowInLimits,
   profile,
   selectedEntryId,
@@ -59,6 +61,7 @@ export function TimelineView({
   onCollapseChange?: (isCollapsed: boolean) => void;
   onExpandedChange?: (isExpanded: boolean) => void;
   onJumpToRawLogLine: (lineNumber: number) => void;
+  onOpenAutomation: (unitId: string) => void;
   onShowInLimits: (entryId: number) => void;
   profile: ApexLogProfile;
   selectedEntryId?: number;
@@ -73,10 +76,6 @@ export function TimelineView({
   const timedEntries = useMemo(() => getTimedEntries(profile), [profile]);
   const entriesById = useMemo(
     () => new Map(profile.entries.map((entry) => [entry.id, entry])),
-    [profile]
-  );
-  const flowDataByEntryId = useMemo(
-    () => getTimelineFlowDataByEntryId(profile),
     [profile]
   );
   const isTimelineRenderPending =
@@ -120,9 +119,7 @@ export function TimelineView({
       const groups = new DataSet<DataGroup>(
         timelineGroups.filter((group) =>
           timedEntries.some((entry) =>
-            getTimelineGroupIds(entry, flowDataByEntryId, entriesById).includes(
-              group.id
-            )
+            getTimelineGroupIds(entry, entriesById).includes(group.id)
           )
         )
       );
@@ -147,21 +144,19 @@ export function TimelineView({
 
           const flowDataItems: DataItem[] = [];
 
-          if (isFlowDmlEntry(entry, flowDataByEntryId)) {
+          if (isFlowDmlEntry(entry)) {
             flowDataItems.push({
               ...primaryItem,
               className: getTimelineItemClassName(entry, entriesById, 'dml'),
               content: formatTimelineContent(entry, {
                 entriesById,
                 flowDmlCopy: true,
-                flowDataByEntryId,
               }),
               end: getTimelineVisualEnd(entry),
               group: 'dml' satisfies TimelineGroupId,
               title: formatTimelineTitle(entry, {
                 entriesById,
                 flowDmlCopy: true,
-                flowDataByEntryId,
                 includeFlowPath: true,
               }),
             });
@@ -178,7 +173,6 @@ export function TimelineView({
               content: formatTimelineContent(entry, {
                 entriesById,
                 flowDmlCopy: true,
-                flowDataByEntryId,
                 flowElementOnly: true,
               }),
               end: getTimelineVisualEnd(entry),
@@ -186,7 +180,6 @@ export function TimelineView({
               title: formatTimelineTitle(entry, {
                 entriesById,
                 flowDmlCopy: true,
-                flowDataByEntryId,
                 flowElementOnly: true,
                 includeFlowPath: true,
               }),
@@ -194,21 +187,19 @@ export function TimelineView({
             itemById.set(`flow-workflow-dml-${entry.id}`, entry);
           }
 
-          if (isFlowSoqlEntry(entry, flowDataByEntryId)) {
+          if (isFlowSoqlEntry(entry)) {
             flowDataItems.push({
               ...primaryItem,
               id: `flow-soql-${entry.id}`,
               className: getTimelineItemClassName(entry, entriesById, 'soql'),
               content: formatTimelineContent(entry, {
                 entriesById,
-                flowDataByEntryId,
                 flowSoqlCopy: true,
               }),
               end: getTimelineVisualEnd(entry),
               group: 'soql' satisfies TimelineGroupId,
               title: formatTimelineTitle(entry, {
                 entriesById,
-                flowDataByEntryId,
                 flowSoqlCopy: true,
                 includeFlowPath: true,
               }),
@@ -226,7 +217,6 @@ export function TimelineView({
               )} timeline-item-soql-mirror`,
               content: formatTimelineContent(entry, {
                 entriesById,
-                flowDataByEntryId,
                 flowElementOnly: true,
                 flowSoqlCopy: true,
               }),
@@ -234,7 +224,6 @@ export function TimelineView({
               group: 'workflow' satisfies TimelineGroupId,
               title: formatTimelineTitle(entry, {
                 entriesById,
-                flowDataByEntryId,
                 flowElementOnly: true,
                 flowSoqlCopy: true,
                 includeFlowPath: true,
@@ -256,7 +245,6 @@ export function TimelineView({
                   )} timeline-item-soql-mirror`,
                   content: formatTimelineContent(entry, {
                     entriesById,
-                    flowDataByEntryId,
                     flowElementOnly: true,
                     flowSoqlCopy: true,
                   }),
@@ -264,7 +252,6 @@ export function TimelineView({
                   group: 'workflow' satisfies TimelineGroupId,
                   title: formatTimelineTitle(entry, {
                     entriesById,
-                    flowDataByEntryId,
                     flowElementOnly: true,
                     flowSoqlCopy: true,
                     includeFlowPath: true,
@@ -380,7 +367,7 @@ export function TimelineView({
         timelineRef.current = null;
       }
     };
-  }, [entriesById, flowDataByEntryId, profile, timedEntries]);
+  }, [entriesById, profile, timedEntries]);
 
   useEffect(() => {
     if (!isActive) {
@@ -530,6 +517,20 @@ export function TimelineView({
   const selectedFlowLimitRows = selectedEntry
     ? getFlowLimitUsageRows(selectedEntry.metadata?.flow?.usage)
     : [];
+  const selectedCodeUnitLimitRows = selectedEntry
+    ? getCodeUnitLimitRows(selectedEntry, profile)
+    : [];
+  const selectedDatabaseLimitRows = selectedEntry
+    ? getDatabaseLimitUsageRows(selectedEntry, profile)
+    : [];
+  const selectedLimitRows = [
+    ...selectedFlowLimitRows,
+    ...selectedCodeUnitLimitRows,
+    ...selectedDatabaseLimitRows,
+  ];
+  const selectedAutomationUnitId = selectedEntry
+    ? getAutomationUnitIdForEntry(selectedEntry, profile)
+    : undefined;
 
   function clearSelection() {
     setSelectedEntry(undefined);
@@ -666,12 +667,12 @@ export function TimelineView({
                   <dd>{selectedFlowDataLabels.join(', ')}</dd>
                 </div>
               )}
-              {selectedFlowLimitRows.length > 0 && (
+              {selectedLimitRows.length > 0 && (
                 <div>
                   <dt>Limits Consumed</dt>
                   <dd>
                     <ul className="timeline-detail-metrics">
-                      {selectedFlowLimitRows.map((row) => (
+                      {selectedLimitRows.map((row) => (
                         <li key={row.label}>
                           <span>{row.label}</span>
                           <span>{row.value}</span>
@@ -704,6 +705,15 @@ export function TimelineView({
               >
                 Jump to Raw Log Line {selectedEntry.lineNumber}
               </button>
+              {selectedAutomationUnitId && (
+                <button
+                  className="timeline-detail-action timeline-detail-action-secondary"
+                  onClick={() => onOpenAutomation(selectedAutomationUnitId)}
+                  type="button"
+                >
+                  Open Automation
+                </button>
+              )}
               {(selectedEntry.type === 'soql' || selectedEntry.type === 'dml') && (
                 <button
                 className="timeline-detail-action"
@@ -725,6 +735,66 @@ function getFlowDataLabels(entry: ApexLogEntry): string[] {
   return (entry.metadata?.flow?.dataOperations ?? []).map((operation) =>
     operation === 'soql' ? 'SOQL Query' : 'DML'
   );
+}
+
+function getAutomationUnitIdForEntry(
+  entry: ApexLogEntry,
+  profile: ApexLogProfile
+): string | undefined {
+  if (isFlowCodeUnitEntry(entry)) {
+    return undefined;
+  }
+
+  const element = profile.automation.elements.find((candidate) =>
+    candidate.entryIds.includes(entry.id)
+  );
+
+  if (element) {
+    return element.unitId;
+  }
+
+  const startedExecution = profile.automation.executions.find(
+    (candidate) =>
+      candidate.startEntryId === entry.id &&
+      candidate.startLineNumber === entry.lineNumber
+  );
+
+  if (startedExecution) {
+    return startedExecution.unitId;
+  }
+
+  const soqlExecutionId = profile.soqlExecutions.find(
+    (candidate) => candidate.entryId === entry.id
+  )?.id;
+  const dmlExecutionId = profile.dmlExecutions.find(
+    (candidate) => candidate.entryId === entry.id
+  )?.id;
+  const databaseExecution = profile.automation.executions.find(
+    (candidate) =>
+      (soqlExecutionId !== undefined &&
+        candidate.soqlExecutionIds.includes(soqlExecutionId)) ||
+      (dmlExecutionId !== undefined &&
+        candidate.dmlExecutionIds.includes(dmlExecutionId))
+  );
+
+  if (databaseExecution) {
+    return databaseExecution.unitId;
+  }
+
+  const execution = profile.automation.executions.find(
+    (candidate) =>
+      (candidate.endEntryId === entry.id &&
+        candidate.endLineNumber === entry.lineNumber) ||
+      candidate.entryIds.includes(entry.id)
+  );
+
+  if (execution) {
+    return execution.unitId;
+  }
+
+  return profile.automation.units.find((candidate) =>
+    candidate.entryIds.includes(entry.id)
+  )?.id;
 }
 
 function getFlowLimitUsageRows(
@@ -756,6 +826,262 @@ function getFlowLimitUsageRows(
       },
     ];
   });
+}
+
+function getCodeUnitLimitRows(
+  entry: ApexLogEntry,
+  profile: ApexLogProfile
+): Array<{ label: string; value: string }> {
+  if (!isCodeUnitDetailEntry(entry)) {
+    return [];
+  }
+
+  const executions = findCodeUnitExecutions(entry, profile);
+
+  if (executions.length === 0) {
+    return [];
+  }
+
+  return getAutomationMetricRows(aggregateAutomationMetrics(executions));
+}
+
+function isCodeUnitDetailEntry(entry: ApexLogEntry): boolean {
+  if (
+    entry.metadata?.flow?.elementName ||
+    entry.type === 'dml' ||
+    entry.type === 'soql'
+  ) {
+    return false;
+  }
+
+  return (
+    entry.event === 'CODE_UNIT_STARTED' ||
+    entry.event === 'CODE_UNIT_FINISHED' ||
+    entry.event === 'FLOW_CREATE_INTERVIEW_END' ||
+    entry.event === 'FLOW_START_INTERVIEW_BEGIN' ||
+    entry.event === 'FLOW_START_INTERVIEW_END' ||
+    entry.event === 'FLOW_INTERVIEW_FINISHED'
+  );
+}
+
+function findCodeUnitExecutions(
+  entry: ApexLogEntry,
+  profile: ApexLogProfile
+): Array<ApexLogProfile['automation']['executions'][number]> {
+  const directExecution = profile.automation.executions.find(
+    (candidate) =>
+      candidate.startEntryId === entry.id ||
+      candidate.endEntryId === entry.id ||
+      candidate.entryIds.includes(entry.id)
+  );
+
+  if (directExecution && !isFlowCodeUnitEntry(entry)) {
+    return [directExecution];
+  }
+
+  if (!isFlowCodeUnitEntry(entry)) {
+    return directExecution ? [directExecution] : [];
+  }
+
+  const flowUnit = profile.automation.units.find(
+    (unit) => unit.kind === 'flow' && unit.codeUnit === entry.detail
+  );
+
+  if (!flowUnit) {
+    return directExecution ? [directExecution] : [];
+  }
+
+  const executionsInsideCodeUnit = profile.automation.executions.filter((execution) =>
+    flowUnit.executionIds.includes(execution.id) &&
+    isExecutionInsideCodeUnit(entry, execution)
+  );
+
+  if (executionsInsideCodeUnit.length > 0) {
+    return executionsInsideCodeUnit;
+  }
+
+  return directExecution ? [directExecution] : [];
+}
+
+function isFlowCodeUnitEntry(entry: ApexLogEntry): boolean {
+  return (
+    (entry.event === 'CODE_UNIT_STARTED' || entry.event === 'CODE_UNIT_FINISHED') &&
+    entry.detail.startsWith('Flow:')
+  );
+}
+
+function isExecutionInsideCodeUnit(
+  entry: ApexLogEntry,
+  execution: ApexLogProfile['automation']['executions'][number]
+): boolean {
+  if (typeof execution.startLineNumber !== 'number') {
+    return false;
+  }
+
+  if (execution.startLineNumber < entry.lineNumber) {
+    return false;
+  }
+
+  if (
+    typeof entry.endLineNumber === 'number' &&
+    typeof execution.endLineNumber === 'number' &&
+    execution.endLineNumber > entry.endLineNumber
+  ) {
+    return false;
+  }
+
+  if (
+    typeof entry.endLineNumber === 'number' &&
+    typeof execution.endLineNumber !== 'number'
+  ) {
+    return execution.startLineNumber <= entry.endLineNumber;
+  }
+
+  return true;
+}
+
+function aggregateAutomationMetrics(
+  executions: Array<ApexLogProfile['automation']['executions'][number]>
+): AutomationMetrics {
+  const totals: Record<keyof AutomationMetrics, number> = {
+    durationMs: 0,
+    cpuMs: 0,
+    soqlQueries: 0,
+    soqlRows: 0,
+    dmlStatements: 0,
+    dmlRows: 0,
+  };
+
+  for (const execution of executions) {
+    for (const key of Object.keys(totals) as Array<keyof AutomationMetrics>) {
+      totals[key] += execution.metrics[key]?.value ?? 0;
+    }
+  }
+
+  return Object.fromEntries(
+    (Object.entries(totals) as Array<[keyof AutomationMetrics, number]>)
+      .filter(([, value]) => value > 0)
+      .map(([key, value]) => [key, { value, confidence: 'inferred' }])
+  ) as AutomationMetrics;
+}
+
+function getAutomationMetricRows(
+  metrics: AutomationMetrics
+): Array<{ label: string; value: string }> {
+  const rows: Array<[string, number | undefined, string?]> = [
+    ['SOQL Queries', metrics.soqlQueries?.value],
+    ['SOQL Rows', metrics.soqlRows?.value],
+    ['DML Statements', metrics.dmlStatements?.value],
+    ['DML Rows', metrics.dmlRows?.value],
+    ['CPU Time', metrics.cpuMs?.value, ' ms'],
+  ];
+
+  return rows.flatMap(([label, value, unit = '']) => {
+    if (typeof value !== 'number' || value === 0) {
+      return [];
+    }
+
+    return [
+      {
+        label,
+        value: `${value.toLocaleString()}${unit}`,
+      },
+    ];
+  });
+}
+
+function getDatabaseLimitUsageRows(
+  entry: ApexLogEntry,
+  profile: ApexLogProfile
+): Array<{ label: string; value: string }> {
+  if (entry.type === 'dml') {
+    return getDmlLimitUsageRows(entry, profile);
+  }
+
+  if (entry.type === 'soql') {
+    return getSoqlLimitUsageRows(entry, profile);
+  }
+
+  return [];
+}
+
+function getDmlLimitUsageRows(
+  entry: ApexLogEntry,
+  profile: ApexLogProfile
+): Array<{ label: string; value: string }> {
+  const execution = profile.dmlExecutions.find(
+    (candidate) => candidate.entryId === entry.id
+  );
+  const usage = execution?.usage ?? entry.metadata?.dml?.usage;
+  const rows: Array<{ label: string; value: string }> = [];
+
+  if (usage?.statements) {
+    rows.push({
+      label: 'DML Statements',
+      value: formatLimitUsage(1, usage.statements),
+    });
+  }
+
+  const consumedRows = execution?.rows ?? entry.metadata?.dml?.rows;
+
+  if (typeof consumedRows === 'number') {
+    rows.push({
+      label: 'DML Rows',
+      value: formatLimitUsage(consumedRows, usage?.rows),
+    });
+  }
+
+  return rows;
+}
+
+function getSoqlLimitUsageRows(
+  entry: ApexLogEntry,
+  profile: ApexLogProfile
+): Array<{ label: string; value: string }> {
+  const execution = profile.soqlExecutions.find(
+    (candidate) => candidate.entryId === entry.id
+  );
+  const usage = execution?.usage ?? entry.metadata?.soql?.usage;
+  const rows: Array<{ label: string; value: string }> = [];
+
+  if (usage?.queries) {
+    rows.push({
+      label: 'SOQL Queries',
+      value: formatLimitUsage(1, usage.queries),
+    });
+  }
+
+  const consumedRows = execution?.rows ?? entry.metadata?.soql?.rows;
+
+  if (typeof consumedRows === 'number') {
+    rows.push({
+      label: 'SOQL Rows',
+      value: formatLimitUsage(consumedRows, usage?.rows),
+    });
+  }
+
+  const aggregations =
+    execution?.aggregations ?? entry.metadata?.soql?.aggregations;
+
+  if (typeof aggregations === 'number' && aggregations > 0) {
+    rows.push({
+      label: 'Aggregations',
+      value: formatLimitUsage(aggregations, usage?.aggregations),
+    });
+  }
+
+  return rows;
+}
+
+function formatLimitUsage(
+  consumed: number,
+  usage: LimitUsageSnapshot | undefined
+): string {
+  if (!usage) {
+    return consumed.toLocaleString();
+  }
+
+  return `${consumed.toLocaleString()} (${usage.current.toLocaleString()} / ${usage.max.toLocaleString()})`;
 }
 
 function getTimelineItemClassName(

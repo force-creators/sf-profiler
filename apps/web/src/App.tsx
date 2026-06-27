@@ -456,6 +456,7 @@ export function App() {
                     onJumpToRawLogLine={openRawLogAtLine}
                     onCollapseChange={handleSummaryTimelineCollapseChange}
                     onExpandedChange={setIsSummaryTimelineExpanded}
+                    onOpenAutomation={openAutomationView}
                     onShowInLimits={openLimitsView}
                     profile={loadedLog.profile}
                     selectedEntryId={selectedTimelineEntryId}

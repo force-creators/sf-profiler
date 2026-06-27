@@ -752,6 +752,11 @@ body.is-resizing-summary-rows {
   gap: 16px;
 }
 
+.automation-card-jump-target > .automation-card {
+  border-color: var(--color-accent-border-strong);
+  box-shadow: 0 0 0 3px rgb(31 111 235 / 14%);
+}
+
 .automation-card-collapsed {
   gap: 0;
 }
@@ -2407,7 +2412,7 @@ button.automation-element-row:focus-visible {
 .timeline-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
+  gap: 8px;
   align-items: stretch;
   height: 100%;
 }
@@ -2545,7 +2550,11 @@ button.automation-element-row:focus-visible {
 }
 
 .timeline-detail {
-  margin-top:10px;
+  align-self: start;
+  max-height: 100%;
+  margin-top: 0;
+  padding-left: 8px;
+  overflow: auto;
 }
 
 .timeline-detail dl {
@@ -2631,7 +2640,6 @@ button.automation-element-row:focus-visible {
 .timeline-detail-action {
   width: 100%;
   min-height: 38px;
-  margin-top: 16px;
   color: var(--color-button-text);
   background: var(--color-accent);
   border: 0;
@@ -2639,12 +2647,15 @@ button.automation-element-row:focus-visible {
   font-weight: 700;
 }
 
+.timeline-detail-actions .timeline-detail-action:first-child {
+  margin-top: 16px;
+}
+
 .timeline-detail-action:hover {
   background: var(--color-accent-strong);
 }
 
 .timeline-detail-action-secondary {
-  margin-top: 16px;
   color: var(--color-accent-strong);
   background: var(--color-accent-soft);
   border: 1px solid var(--color-accent-border);

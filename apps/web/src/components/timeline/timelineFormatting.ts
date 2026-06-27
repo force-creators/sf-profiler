@@ -2,13 +2,11 @@ import type { ApexLogEntry } from '@sfdc-profiler/core';
 import {
   isFlowDmlEntry,
   isFlowSoqlEntry,
-  type TimelineFlowDataMetrics,
 } from './timelineEntries';
 
 type TimelineFormattingOptions = {
   entriesById?: Map<number, ApexLogEntry>;
   flowDmlCopy?: boolean;
-  flowDataByEntryId?: Map<number, TimelineFlowDataMetrics>;
   flowElementOnly?: boolean;
   flowSoqlCopy?: boolean;
   includeFlowPath?: boolean;
@@ -48,7 +46,7 @@ function getTimelineLabel(
 ): string {
   if (
     options.flowDmlCopy &&
-    isFlowDmlEntry(entry, options.flowDataByEntryId)
+    isFlowDmlEntry(entry)
   ) {
     if (options.flowElementOnly) {
       return entry.metadata?.flow?.elementName ?? entry.detail ?? 'Flow Update';
@@ -64,7 +62,7 @@ function getTimelineLabel(
 
   if (
     options.flowSoqlCopy &&
-    (isFlowSoqlEntry(entry, options.flowDataByEntryId) ||
+    (isFlowSoqlEntry(entry) ||
       (options.entriesById
         ? Boolean(findNearestFlowElement(entry, options.entriesById))
         : false))

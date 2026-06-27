@@ -1,11 +1,6 @@
 import type { ApexLogEntry, ApexLogProfile } from '@sfdc-profiler/core';
 import type { TimelineGroupId } from './timelineGroups';
 
-export type TimelineFlowDataMetrics = {
-  hasDml: boolean;
-  hasSoql: boolean;
-};
-
 const MIN_TIMELINE_DURATION_MS = 1;
 const SUPPRESSED_TIMELINE_EVENTS = new Set(['FLOW_START_INTERVIEW_BEGIN']);
 const FLOW_DML_ELEMENT_TYPES = new Set([
@@ -15,14 +10,12 @@ const FLOW_DML_ELEMENT_TYPES = new Set([
 ]);
 
 export function getTimedEntries(profile: ApexLogProfile): ApexLogEntry[] {
-  const flowDataByEntryId = getTimelineFlowDataByEntryId(profile);
-
   return profile.entries
     .filter(
       (entry): entry is ApexLogEntry =>
         typeof entry?.duration === 'number' &&
         (entry.duration > MIN_TIMELINE_DURATION_MS ||
-          isFlowDataEntry(entry, flowDataByEntryId)) &&
+          isFlowDataEntry(entry)) &&
         typeof entry.endTime === 'number' &&
         !SUPPRESSED_TIMELINE_EVENTS.has(entry.event) &&
         entry.type !== 'limit'
@@ -32,62 +25,25 @@ export function getTimedEntries(profile: ApexLogProfile): ApexLogEntry[] {
     );
 }
 
-export function getTimelineFlowDataByEntryId(
-  profile: ApexLogProfile
-): Map<number, TimelineFlowDataMetrics> {
-  const flowDataByEntryId = new Map<number, TimelineFlowDataMetrics>();
-
-  for (const element of profile.automation.elements) {
-    const metrics: TimelineFlowDataMetrics = {
-      hasDml:
-        (element.metrics.dmlStatements?.value ?? 0) > 0 ||
-        (element.metrics.dmlRows?.value ?? 0) > 0,
-      hasSoql:
-        (element.metrics.soqlQueries?.value ?? 0) > 0 ||
-        (element.metrics.soqlRows?.value ?? 0) > 0,
-    };
-
-    if (!metrics.hasDml && !metrics.hasSoql) {
-      continue;
-    }
-
-    for (const entryId of element.entryIds) {
-      const existing = flowDataByEntryId.get(entryId);
-
-      flowDataByEntryId.set(entryId, {
-        hasDml: Boolean(existing?.hasDml || metrics.hasDml),
-        hasSoql: Boolean(existing?.hasSoql || metrics.hasSoql),
-      });
-    }
-  }
-
-  return flowDataByEntryId;
-}
-
-export function getTimelineGroupId(entry: ApexLogEntry): TimelineGroupId {
-  return entry.type;
-}
-
 export function getTimelineGroupIds(
   entry: ApexLogEntry,
-  flowDataByEntryId?: Map<number, TimelineFlowDataMetrics>,
   entriesById?: Map<number, ApexLogEntry>
 ): TimelineGroupId[] {
   const groupIds: TimelineGroupId[] = [];
 
-  if (isFlowDmlEntry(entry, flowDataByEntryId)) {
+  if (isFlowDmlEntry(entry)) {
     groupIds.push('dml');
   }
 
-  if (isFlowSoqlEntry(entry, flowDataByEntryId)) {
+  if (isFlowSoqlEntry(entry)) {
     groupIds.push('soql');
   }
 
-  if (isFlowDmlEntry(entry, flowDataByEntryId)) {
+  if (isFlowDmlEntry(entry)) {
     groupIds.push('workflow');
   }
 
-  if (isFlowSoqlEntry(entry, flowDataByEntryId)) {
+  if (isFlowSoqlEntry(entry)) {
     groupIds.push('workflow');
   }
 
@@ -149,10 +105,7 @@ export function isFlowContextEntry(entry: ApexLogEntry): boolean {
   return isFlowCodeUnitEntry(entry) || entry.event === 'FLOW_CREATE_INTERVIEW_END';
 }
 
-export function isFlowDmlEntry(
-  entry: ApexLogEntry,
-  _flowDataByEntryId?: Map<number, TimelineFlowDataMetrics>
-): boolean {
+export function isFlowDmlEntry(entry: ApexLogEntry): boolean {
   return (
     isFlowElementBeginEntry(entry) &&
     (entry.metadata?.flow?.dataOperations?.includes('dml') === true ||
@@ -160,10 +113,7 @@ export function isFlowDmlEntry(
   );
 }
 
-export function isFlowSoqlEntry(
-  entry: ApexLogEntry,
-  _flowDataByEntryId?: Map<number, TimelineFlowDataMetrics>
-): boolean {
+export function isFlowSoqlEntry(entry: ApexLogEntry): boolean {
   if (!isFlowElementBeginEntry(entry)) {
     return false;
   }
@@ -267,14 +217,8 @@ function isFlowElementBeginEntry(entry: ApexLogEntry): boolean {
   );
 }
 
-function isFlowDataEntry(
-  entry: ApexLogEntry,
-  flowDataByEntryId: Map<number, TimelineFlowDataMetrics>
-): boolean {
-  return (
-    isFlowDmlEntry(entry, flowDataByEntryId) ||
-    isFlowSoqlEntry(entry, flowDataByEntryId)
-  );
+function isFlowDataEntry(entry: ApexLogEntry): boolean {
+  return isFlowDmlEntry(entry) || isFlowSoqlEntry(entry);
 }
 
 function countEnclosingFlowCodeUnits(
