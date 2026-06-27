@@ -2,6 +2,7 @@
   "name": "sfdc-profiler",
   "version": "0.1.4",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "workspaces": [
     "packages/*",

@@ -59,3 +59,11 @@ SOQL, DML, and other events. It is designed for the "what happened first?" and
 - `apps/desktop`: Electron shell for the web app.
 - `apps/vscode`: VS Code extension for profiling `.log` files from Explorer or
   the editor.
+
+## License
+
+SF Profiler is licensed under AGPL-3.0-or-later. See [LICENSE](LICENSE) for the
+full license text and [NOTICE](NOTICE) for the required attribution notice.
+
+The SF Profiler name, logo, and related branding are not licensed under the
+AGPL. See [TRADEMARKS.md](TRADEMARKS.md) for trademark and branding terms.

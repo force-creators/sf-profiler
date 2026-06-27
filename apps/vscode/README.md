@@ -64,3 +64,8 @@ opens.
 3. Choose **Profile Log**.
 
 The profile opens in a normal editor tab.
+
+## License
+
+SF Profiler is licensed under AGPL-3.0-or-later and includes a required
+attribution notice: Powered by SF Profiler.

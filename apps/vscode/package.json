@@ -17,7 +17,7 @@
   "bugs": {
     "url": "https://github.com/force-creators/sf-profiler/issues"
   },
-  "license": "UNLICENSED",
+  "license": "AGPL-3.0-or-later",
   "icon": "media/web/icon.png",
   "files": [
     "dist/**",

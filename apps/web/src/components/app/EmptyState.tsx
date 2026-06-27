@@ -86,7 +86,8 @@ export function EmptyState({
         </p>
       )}
       <p className="empty-state-copyright">
-        Copyright 2026 Matthew Swing-McKenzie &amp; Force Creators
+        Powered by SF Profiler. Copyright 2026 Matthew Swing-McKenzie &amp; Force
+        Creators.
       </p>
     </div>
   );

@@ -1,4 +1,10 @@
-import { Activity, Database, Gauge, LockKeyhole } from 'lucide-react';
+import {
+  Activity,
+  Database,
+  Gauge,
+  LockKeyhole,
+  ShieldCheck,
+} from 'lucide-react';
 import { SocialLinks } from './SocialLinks';
 
 const aboutHighlights = [
@@ -80,6 +86,17 @@ export function AboutView() {
             without requiring an install.
           </p>
           <SocialLinks />
+        </section>
+
+        <section className="about-legal" aria-label="Legal notice">
+          <ShieldCheck size={18} aria-hidden="true" />
+          <div>
+            <h4>Powered by SF Profiler</h4>
+            <p className="muted">
+              Copyright 2026 Matthew Swing-McKenzie and Force Creators.
+              Licensed under AGPL-3.0-or-later.
+            </p>
+          </div>
         </section>
       </article>
     </section>

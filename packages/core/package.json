@@ -1,6 +1,7 @@
 {
   "name": "@sfdc-profiler/core",
   "version": "0.1.4",
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
