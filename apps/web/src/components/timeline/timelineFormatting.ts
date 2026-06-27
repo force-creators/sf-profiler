@@ -9,6 +9,7 @@ type TimelineFormattingOptions = {
   entriesById?: Map<number, ApexLogEntry>;
   flowDmlCopy?: boolean;
   flowDataByEntryId?: Map<number, TimelineFlowDataMetrics>;
+  flowElementOnly?: boolean;
   flowSoqlCopy?: boolean;
   includeFlowPath?: boolean;
 };
@@ -49,6 +50,10 @@ function getTimelineLabel(
     options.flowDmlCopy &&
     isFlowDmlEntry(entry, options.flowDataByEntryId)
   ) {
+    if (options.flowElementOnly) {
+      return entry.metadata?.flow?.elementName ?? entry.detail ?? 'Flow Update';
+    }
+
     const flowName = options.entriesById
       ? findNearestFlowName(entry, options.entriesById)
       : undefined;
@@ -59,12 +64,24 @@ function getTimelineLabel(
 
   if (
     options.flowSoqlCopy &&
-    isFlowSoqlEntry(entry, options.flowDataByEntryId)
+    (isFlowSoqlEntry(entry, options.flowDataByEntryId) ||
+      (options.entriesById
+        ? Boolean(findNearestFlowElement(entry, options.entriesById))
+        : false))
   ) {
+    const nearestElement = options.entriesById
+      ? findNearestFlowElement(entry, options.entriesById)
+      : undefined;
+    const elementName =
+      entry.metadata?.flow?.elementName ?? nearestElement?.name ?? entry.detail;
+
+    if (options.flowElementOnly) {
+      return elementName || 'Flow Query';
+    }
+
     const flowName = options.entriesById
       ? findNearestFlowName(entry, options.entriesById)
       : undefined;
-    const elementName = entry.metadata?.flow?.elementName ?? entry.detail;
 
     return [flowName, elementName].filter(Boolean).join(': ') || 'Flow Lookup';
   }
@@ -83,6 +100,39 @@ export function findNearestFlowName(
 
     if (flowName) {
       return flowName;
+    }
+
+    current =
+      current.parentId === undefined ? undefined : entriesById.get(current.parentId);
+  }
+
+  return undefined;
+}
+
+export type TimelineFlowElement = {
+  name?: string;
+  type?: string;
+};
+
+export function findNearestFlowElement(
+  entry: ApexLogEntry,
+  entriesById: Map<number, ApexLogEntry>
+): TimelineFlowElement | undefined {
+  let current: ApexLogEntry | undefined = entry;
+
+  while (current) {
+    if (
+      current.event === 'FLOW_ELEMENT_BEGIN' ||
+      current.event === 'FLOW_BULK_ELEMENT_BEGIN'
+    ) {
+      const element = current.metadata?.flow;
+
+      if (element?.elementName || element?.elementType) {
+        return {
+          name: element.elementName,
+          type: element.elementType,
+        };
+      }
     }
 
     current =

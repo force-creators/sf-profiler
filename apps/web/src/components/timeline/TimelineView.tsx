@@ -27,11 +27,15 @@ import {
   getTimelineFlowDataByEntryId,
   getTimedEntries,
   getTimelineGroupIds,
+  isApexDmlEntry,
+  isApexSoqlEntry,
   isFlowDmlEntry,
   isFlowSoqlEntry,
+  isFlowSoqlExecutionEntry,
   type TimelineFlowRole,
 } from './timelineEntries';
 import {
+  findNearestFlowElement,
   findNearestFlowName,
   formatTimelineContent,
   formatTimelineTitle,
@@ -116,7 +120,9 @@ export function TimelineView({
       const groups = new DataSet<DataGroup>(
         timelineGroups.filter((group) =>
           timedEntries.some((entry) =>
-            getTimelineGroupIds(entry, flowDataByEntryId).includes(group.id)
+            getTimelineGroupIds(entry, flowDataByEntryId, entriesById).includes(
+              group.id
+            )
           )
         )
       );
@@ -159,6 +165,33 @@ export function TimelineView({
                 includeFlowPath: true,
               }),
             });
+
+            flowDataItems.push({
+              ...primaryItem,
+              id: `flow-workflow-dml-${entry.id}`,
+              className: `${getTimelineItemClassName(
+                entry,
+                entriesById,
+                'workflow',
+                flowRole
+              )} timeline-item-dml-mirror`,
+              content: formatTimelineContent(entry, {
+                entriesById,
+                flowDmlCopy: true,
+                flowDataByEntryId,
+                flowElementOnly: true,
+              }),
+              end: getTimelineVisualEnd(entry),
+              group: 'workflow' satisfies TimelineGroupId,
+              title: formatTimelineTitle(entry, {
+                entriesById,
+                flowDmlCopy: true,
+                flowDataByEntryId,
+                flowElementOnly: true,
+                includeFlowPath: true,
+              }),
+            });
+            itemById.set(`flow-workflow-dml-${entry.id}`, entry);
           }
 
           if (isFlowSoqlEntry(entry, flowDataByEntryId)) {
@@ -181,13 +214,105 @@ export function TimelineView({
               }),
             });
             itemById.set(`flow-soql-${entry.id}`, entry);
+
+            flowDataItems.push({
+              ...primaryItem,
+              id: `flow-workflow-soql-${entry.id}`,
+              className: `${getTimelineItemClassName(
+                entry,
+                entriesById,
+                'workflow',
+                flowRole
+              )} timeline-item-soql-mirror`,
+              content: formatTimelineContent(entry, {
+                entriesById,
+                flowDataByEntryId,
+                flowElementOnly: true,
+                flowSoqlCopy: true,
+              }),
+              end: getTimelineVisualEnd(entry),
+              group: 'workflow' satisfies TimelineGroupId,
+              title: formatTimelineTitle(entry, {
+                entriesById,
+                flowDataByEntryId,
+                flowElementOnly: true,
+                flowSoqlCopy: true,
+                includeFlowPath: true,
+              }),
+            });
+            itemById.set(`flow-workflow-soql-${entry.id}`, entry);
           }
+
+          const flowSoqlExecutionItem: DataItem | undefined =
+            isFlowSoqlExecutionEntry(entry, entriesById)
+              ? {
+                  ...primaryItem,
+                  id: `flow-workflow-soql-${entry.id}`,
+                  className: `${getTimelineItemClassName(
+                    entry,
+                    entriesById,
+                    'workflow',
+                    flowRole
+                  )} timeline-item-soql-mirror`,
+                  content: formatTimelineContent(entry, {
+                    entriesById,
+                    flowDataByEntryId,
+                    flowElementOnly: true,
+                    flowSoqlCopy: true,
+                  }),
+                  end: getTimelineVisualEnd(entry),
+                  group: 'workflow' satisfies TimelineGroupId,
+                  title: formatTimelineTitle(entry, {
+                    entriesById,
+                    flowDataByEntryId,
+                    flowElementOnly: true,
+                    flowSoqlCopy: true,
+                    includeFlowPath: true,
+                  }),
+                }
+              : undefined;
+
+          if (flowSoqlExecutionItem) {
+            itemById.set(`flow-workflow-soql-${entry.id}`, entry);
+          }
+
+          const apexDataItem: DataItem | undefined =
+            isApexDmlEntry(entry, entriesById) || isApexSoqlEntry(entry, entriesById)
+            ? {
+                ...primaryItem,
+                id: `apex-data-${entry.id}`,
+                className: `${getTimelineItemClassName(
+                  entry,
+                  entriesById,
+                  'apex'
+                )}${entry.type === 'dml' ? ' timeline-item-dml-mirror' : ''}${
+                  entry.type === 'soql' ? ' timeline-item-soql-mirror' : ''
+                }`,
+                group: 'apex' satisfies TimelineGroupId,
+                title: formatTimelineTitle(entry, {
+                  entriesById,
+                  includeFlowPath: true,
+                }),
+              }
+            : undefined;
+
+          if (apexDataItem) {
+            itemById.set(`apex-data-${entry.id}`, entry);
+          }
+
+          const mirroredItems = [
+            ...flowDataItems,
+            ...(flowSoqlExecutionItem ? [flowSoqlExecutionItem] : []),
+            ...(apexDataItem ? [apexDataItem] : []),
+          ];
 
           if (flowDataItems.length > 0) {
-            return flowDataItems;
+            return mirroredItems;
           }
 
-          return [primaryItem];
+          return mirroredItems.length > 0
+            ? [primaryItem, ...mirroredItems]
+            : [primaryItem];
         })
       );
       const options: TimelineOptions = {
@@ -392,6 +517,13 @@ export function TimelineView({
   const selectedFlowName = selectedEntry
     ? findNearestFlowName(selectedEntry, entriesById)
     : undefined;
+  const selectedFlowElement = selectedEntry
+    ? findNearestFlowElement(selectedEntry, entriesById)
+    : undefined;
+  const selectedFlowElementName =
+    selectedEntry?.metadata?.flow?.elementName ?? selectedFlowElement?.name;
+  const selectedFlowElementType =
+    selectedEntry?.metadata?.flow?.elementType ?? selectedFlowElement?.type;
   const selectedFlowDataLabels = selectedEntry
     ? getFlowDataLabels(selectedEntry)
     : [];
@@ -516,10 +648,16 @@ export function TimelineView({
                   <dd>{selectedFlowName}</dd>
                 </div>
               )}
-              {selectedEntry.metadata?.flow?.elementType && (
+              {selectedFlowElementName && (
                 <div>
                   <dt>Flow Element</dt>
-                  <dd>{selectedEntry.metadata.flow.elementType}</dd>
+                  <dd>{selectedFlowElementName}</dd>
+                </div>
+              )}
+              {selectedFlowElementType && (
+                <div>
+                  <dt>Flow Element Type</dt>
+                  <dd>{selectedFlowElementType}</dd>
                 </div>
               )}
               {selectedFlowDataLabels.length > 0 && (

@@ -2694,13 +2694,47 @@ button.automation-element-row:focus-visible {
   border-color: #5f95e8;
 }
 
+.vis-item.timeline-item-apex.timeline-item-soql-mirror {
+  color: #0f3d2a;
+  background: #dcfce7;
+  border-color: #63c786;
+}
+
+.vis-item.timeline-item-apex.timeline-item-soql-mirror.timeline-lane-nested {
+  background:
+    linear-gradient(90deg, rgb(22 163 74 / 14%), rgb(22 163 74 / 2%) 16px),
+    #e8fcef;
+  border-color: #55bb7b;
+  box-shadow: inset 0 0 0 1px rgb(22 163 74 / 9%);
+}
+
+.vis-item.timeline-item-apex.timeline-item-soql-mirror.timeline-lane-depth-2,
+.vis-item.timeline-item-apex.timeline-item-soql-mirror.timeline-lane-depth-3 {
+  background:
+    linear-gradient(90deg, rgb(22 163 74 / 16%), rgb(22 163 74 / 3%) 20px),
+    #dff9e9;
+  border-color: #48ad70;
+}
+
 .vis-item.timeline-item-soql {
   color: #0f3d2a;
   background: #dcfce7;
   border-color: #63c786;
 }
 
+.vis-item.timeline-item-soql-mirror {
+  color: #0f3d2a;
+  background: #dcfce7;
+  border-color: #63c786;
+}
+
 .vis-item.timeline-item-dml {
+  color: #5c2d0d;
+  background: #ffedd5;
+  border-color: #fb9b45;
+}
+
+.vis-item.timeline-item-dml-mirror {
   color: #5c2d0d;
   background: #ffedd5;
   border-color: #fb9b45;
@@ -2716,6 +2750,22 @@ button.automation-element-row:focus-visible {
 
 .vis-item.timeline-item-dml.timeline-lane-depth-2,
 .vis-item.timeline-item-dml.timeline-lane-depth-3 {
+  background:
+    linear-gradient(90deg, rgb(194 65 12 / 16%), rgb(194 65 12 / 3%) 20px),
+    #ffefd9;
+  border-color: #e78a3c;
+}
+
+.vis-item.timeline-item-dml-mirror.timeline-lane-nested {
+  background:
+    linear-gradient(90deg, rgb(234 88 12 / 13%), rgb(234 88 12 / 2%) 16px),
+    #fff4e6;
+  border-color: #f5a65d;
+  box-shadow: inset 0 0 0 1px rgb(234 88 12 / 7%);
+}
+
+.vis-item.timeline-item-dml-mirror.timeline-lane-depth-2,
+.vis-item.timeline-item-dml-mirror.timeline-lane-depth-3 {
   background:
     linear-gradient(90deg, rgb(194 65 12 / 16%), rgb(194 65 12 / 3%) 20px),
     #ffefd9;
@@ -2762,6 +2812,48 @@ button.automation-element-row:focus-visible {
     #eee6ff;
   border-color: #8b6ff0;
   box-shadow: inset 0 0 0 1px rgb(91 33 182 / 12%);
+}
+
+.vis-item.timeline-flow-invoked.timeline-item-dml-mirror {
+  color: #5c2d0d;
+  background: #ffedd5;
+  border-color: #fb9b45;
+}
+
+.vis-item.timeline-item-workflow.timeline-flow-element.timeline-item-dml-mirror,
+.vis-item.timeline-item-workflow.timeline-flow-element.timeline-flow-invoked.timeline-item-dml-mirror {
+  color: #5c2d0d;
+  background: #ffedd5;
+  border-color: #fb9b45;
+  box-shadow: inset 0 0 0 1px rgb(234 88 12 / 7%);
+}
+
+.vis-item.timeline-flow-invoked.timeline-item-dml-mirror.timeline-depth-2,
+.vis-item.timeline-flow-invoked.timeline-item-dml-mirror.timeline-depth-3 {
+  background:
+    linear-gradient(90deg, rgb(194 65 12 / 16%), rgb(194 65 12 / 3%) 20px),
+    #ffefd9;
+  border-color: #e78a3c;
+  box-shadow: inset 0 0 0 1px rgb(194 65 12 / 10%);
+}
+
+.vis-item.timeline-flow-invoked.timeline-item-soql-mirror,
+.vis-item.timeline-item-workflow.timeline-item-soql-mirror,
+.vis-item.timeline-item-workflow.timeline-flow-element.timeline-item-soql-mirror,
+.vis-item.timeline-item-workflow.timeline-flow-element.timeline-flow-invoked.timeline-item-soql-mirror {
+  color: #0f3d2a;
+  background: #dcfce7;
+  border-color: #63c786;
+  box-shadow: inset 0 0 0 1px rgb(34 197 94 / 7%);
+}
+
+.vis-item.timeline-flow-invoked.timeline-item-soql-mirror.timeline-depth-2,
+.vis-item.timeline-flow-invoked.timeline-item-soql-mirror.timeline-depth-3 {
+  background:
+    linear-gradient(90deg, rgb(22 163 74 / 14%), rgb(22 163 74 / 2%) 20px),
+    #e8fcef;
+  border-color: #55bb7b;
+  box-shadow: inset 0 0 0 1px rgb(22 163 74 / 10%);
 }
 
 .vis-item.timeline-flow-invoked .vis-item-content {
@@ -2865,13 +2957,47 @@ button.automation-element-row:focus-visible {
   border-color: #8ab6eb;
 }
 
+:root[data-theme='dark'] .vis-item.timeline-item-apex.timeline-item-soql-mirror {
+  color: #d4fbe2;
+  background: #1f4735;
+  border-color: #4f9b73;
+}
+
+:root[data-theme='dark'] .vis-item.timeline-item-apex.timeline-item-soql-mirror.timeline-lane-nested {
+  background:
+    linear-gradient(90deg, rgb(134 239 172 / 15%), rgb(134 239 172 / 3%) 16px),
+    #28583f;
+  border-color: #67ad83;
+  box-shadow: inset 0 0 0 1px rgb(134 239 172 / 9%);
+}
+
+:root[data-theme='dark'] .vis-item.timeline-item-apex.timeline-item-soql-mirror.timeline-lane-depth-2,
+:root[data-theme='dark'] .vis-item.timeline-item-apex.timeline-item-soql-mirror.timeline-lane-depth-3 {
+  background:
+    linear-gradient(90deg, rgb(134 239 172 / 17%), rgb(134 239 172 / 4%) 20px),
+    #2d6348;
+  border-color: #73bd8f;
+}
+
 :root[data-theme='dark'] .vis-item.timeline-item-soql {
   color: #d4fbe2;
   background: #1f4735;
   border-color: #4f9b73;
 }
 
+:root[data-theme='dark'] .vis-item.timeline-item-soql-mirror {
+  color: #d4fbe2;
+  background: #1f4735;
+  border-color: #4f9b73;
+}
+
 :root[data-theme='dark'] .vis-item.timeline-item-dml {
+  color: #ffd9b3;
+  background: #5a3a21;
+  border-color: #b77945;
+}
+
+:root[data-theme='dark'] .vis-item.timeline-item-dml-mirror {
   color: #ffd9b3;
   background: #5a3a21;
   border-color: #b77945;
@@ -2887,6 +3013,22 @@ button.automation-element-row:focus-visible {
 
 :root[data-theme='dark'] .vis-item.timeline-item-dml.timeline-lane-depth-2,
 :root[data-theme='dark'] .vis-item.timeline-item-dml.timeline-lane-depth-3 {
+  background:
+    linear-gradient(90deg, rgb(254 215 170 / 19%), rgb(254 215 170 / 4%) 20px),
+    #6c4729;
+  border-color: #dfa05e;
+}
+
+:root[data-theme='dark'] .vis-item.timeline-item-dml-mirror.timeline-lane-nested {
+  background:
+    linear-gradient(90deg, rgb(253 186 116 / 17%), rgb(253 186 116 / 3%) 16px),
+    #604027;
+  border-color: #c9894f;
+  box-shadow: inset 0 0 0 1px rgb(253 186 116 / 8%);
+}
+
+:root[data-theme='dark'] .vis-item.timeline-item-dml-mirror.timeline-lane-depth-2,
+:root[data-theme='dark'] .vis-item.timeline-item-dml-mirror.timeline-lane-depth-3 {
   background:
     linear-gradient(90deg, rgb(254 215 170 / 19%), rgb(254 215 170 / 4%) 20px),
     #6c4729;
@@ -2929,6 +3071,48 @@ button.automation-element-row:focus-visible {
     linear-gradient(90deg, rgb(234 223 255 / 20%), rgb(234 223 255 / 4%) 20px),
     #554378;
   box-shadow: inset 0 0 0 1px rgb(234 223 255 / 14%);
+}
+
+:root[data-theme='dark'] .vis-item.timeline-flow-invoked.timeline-item-dml-mirror {
+  color: #ffd9b3;
+  background: #5a3a21;
+  border-color: #b77945;
+}
+
+:root[data-theme='dark'] .vis-item.timeline-item-workflow.timeline-flow-element.timeline-item-dml-mirror,
+:root[data-theme='dark'] .vis-item.timeline-item-workflow.timeline-flow-element.timeline-flow-invoked.timeline-item-dml-mirror {
+  color: #ffd9b3;
+  background: #5a3a21;
+  border-color: #b77945;
+  box-shadow: inset 0 0 0 1px rgb(253 186 116 / 8%);
+}
+
+:root[data-theme='dark'] .vis-item.timeline-flow-invoked.timeline-item-dml-mirror.timeline-depth-2,
+:root[data-theme='dark'] .vis-item.timeline-flow-invoked.timeline-item-dml-mirror.timeline-depth-3 {
+  background:
+    linear-gradient(90deg, rgb(254 215 170 / 19%), rgb(254 215 170 / 4%) 20px),
+    #6c4729;
+  border-color: #dfa05e;
+  box-shadow: inset 0 0 0 1px rgb(254 215 170 / 12%);
+}
+
+:root[data-theme='dark'] .vis-item.timeline-flow-invoked.timeline-item-soql-mirror,
+:root[data-theme='dark'] .vis-item.timeline-item-workflow.timeline-item-soql-mirror,
+:root[data-theme='dark'] .vis-item.timeline-item-workflow.timeline-flow-element.timeline-item-soql-mirror,
+:root[data-theme='dark'] .vis-item.timeline-item-workflow.timeline-flow-element.timeline-flow-invoked.timeline-item-soql-mirror {
+  color: #d4fbe2;
+  background: #1f4735;
+  border-color: #4f9b73;
+  box-shadow: inset 0 0 0 1px rgb(74 222 128 / 8%);
+}
+
+:root[data-theme='dark'] .vis-item.timeline-flow-invoked.timeline-item-soql-mirror.timeline-depth-2,
+:root[data-theme='dark'] .vis-item.timeline-flow-invoked.timeline-item-soql-mirror.timeline-depth-3 {
+  background:
+    linear-gradient(90deg, rgb(134 239 172 / 16%), rgb(134 239 172 / 3%) 20px),
+    #28583f;
+  border-color: #67ad83;
+  box-shadow: inset 0 0 0 1px rgb(134 239 172 / 10%);
 }
 
 :root[data-theme='dark'] .vis-item.timeline-item-other {

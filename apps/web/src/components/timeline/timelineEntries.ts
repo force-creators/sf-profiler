@@ -70,7 +70,8 @@ export function getTimelineGroupId(entry: ApexLogEntry): TimelineGroupId {
 
 export function getTimelineGroupIds(
   entry: ApexLogEntry,
-  flowDataByEntryId?: Map<number, TimelineFlowDataMetrics>
+  flowDataByEntryId?: Map<number, TimelineFlowDataMetrics>,
+  entriesById?: Map<number, ApexLogEntry>
 ): TimelineGroupId[] {
   const groupIds: TimelineGroupId[] = [];
 
@@ -82,7 +83,31 @@ export function getTimelineGroupIds(
     groupIds.push('soql');
   }
 
+  if (isFlowDmlEntry(entry, flowDataByEntryId)) {
+    groupIds.push('workflow');
+  }
+
+  if (isFlowSoqlEntry(entry, flowDataByEntryId)) {
+    groupIds.push('workflow');
+  }
+
+  if (entriesById && isFlowSoqlExecutionEntry(entry, entriesById)) {
+    groupIds.push('workflow');
+  }
+
+  if (entriesById && isApexDmlEntry(entry, entriesById)) {
+    groupIds.push('apex');
+  }
+
+  if (entriesById && isApexSoqlEntry(entry, entriesById)) {
+    groupIds.push('apex');
+  }
+
   if (groupIds.length > 0) {
+    if (entry.type !== 'workflow' && !groupIds.includes(entry.type)) {
+      groupIds.unshift(entry.type);
+    }
+
     return groupIds;
   }
 
@@ -149,6 +174,72 @@ export function isFlowSoqlEntry(
 
   if (entry.metadata?.flow?.elementType === 'FlowRecordLookup') {
     return true;
+  }
+
+  return false;
+}
+
+export function isApexDmlEntry(
+  entry: ApexLogEntry,
+  entriesById: Map<number, ApexLogEntry>
+): boolean {
+  return entry.type === 'dml' && hasOwningApexAncestor(entry, entriesById);
+}
+
+export function isApexSoqlEntry(
+  entry: ApexLogEntry,
+  entriesById: Map<number, ApexLogEntry>
+): boolean {
+  return entry.type === 'soql' && hasOwningApexAncestor(entry, entriesById);
+}
+
+export function isFlowSoqlExecutionEntry(
+  entry: ApexLogEntry,
+  entriesById: Map<number, ApexLogEntry>
+): boolean {
+  return entry.type === 'soql' && hasFlowElementAncestor(entry, entriesById);
+}
+
+function hasOwningApexAncestor(
+  entry: ApexLogEntry,
+  entriesById: Map<number, ApexLogEntry>
+): boolean {
+  let current =
+    entry.parentId === undefined ? undefined : entriesById.get(entry.parentId);
+
+  while (current) {
+    if (current.type === 'workflow') {
+      return false;
+    }
+
+    if (current.type === 'apex') {
+      return true;
+    }
+
+    current =
+      current.parentId === undefined ? undefined : entriesById.get(current.parentId);
+  }
+
+  return false;
+}
+
+function hasFlowElementAncestor(
+  entry: ApexLogEntry,
+  entriesById: Map<number, ApexLogEntry>
+): boolean {
+  let current =
+    entry.parentId === undefined ? undefined : entriesById.get(entry.parentId);
+
+  while (current) {
+    if (
+      current.event === 'FLOW_ELEMENT_BEGIN' ||
+      current.event === 'FLOW_BULK_ELEMENT_BEGIN'
+    ) {
+      return true;
+    }
+
+    current =
+      current.parentId === undefined ? undefined : entriesById.get(current.parentId);
   }
 
   return false;
