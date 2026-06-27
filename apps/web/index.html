@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SF Profiler | Salesforce Debug Log Analyzer</title>
+    <title>SF Profiler | Salesforce Debug Log Profiler for Web and VS Code</title>
     <meta
       name="description"
-      content="Analyze Salesforce debug logs locally for Apex, Flow, SOQL, DML, CPU, governor limits, recursion insights, and automation limit usage."
+      content="Profile Salesforce debug logs locally in the browser or VS Code for Apex, Flow, SOQL, DML, CPU, governor limits, recursion insights, and automation limit usage."
     />
     <meta
       name="keywords"
@@ -23,10 +23,10 @@
     <meta property="og:locale" content="en_US" />
     <meta property="og:url" content="https://sfprofiler.com/" />
     <meta property="og:site_name" content="SF Profiler" />
-    <meta property="og:title" content="SF Profiler | Salesforce Debug Log Analyzer" />
+    <meta property="og:title" content="SF Profiler | Salesforce Debug Log Profiler for Web and VS Code" />
     <meta
       property="og:description"
-      content="Profile Salesforce debug logs in seconds. Trace Apex, Flow, automation, recursion, SOQL, DML, CPU time, and governor limits on-device."
+      content="Profile Salesforce debug logs in seconds from the web app or VS Code extension. Trace Apex, Flow, automation, recursion, SOQL, DML, CPU time, and governor limits on-device."
     />
     <meta property="og:image" content="https://sfprofiler.com/images/seo/sf-profiler-social.png" />
     <meta property="og:image:width" content="2256" />
@@ -34,10 +34,10 @@
     <meta property="og:image:alt" content="SF Profiler recursion insights view for Salesforce debug logs" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="SF Profiler | Salesforce Debug Log Analyzer" />
+    <meta name="twitter:title" content="SF Profiler | Salesforce Debug Log Profiler for Web and VS Code" />
     <meta
       name="twitter:description"
-      content="Analyze Salesforce debug logs for Apex, Flow, SOQL, DML, recursion, automation, CPU time, and governor limits locally."
+      content="Analyze Salesforce debug logs locally in the browser or VS Code for Apex, Flow, SOQL, DML, recursion, automation, CPU time, and governor limits."
     />
     <meta name="twitter:image" content="https://sfprofiler.com/images/seo/sf-profiler-social.png" />
     <meta name="twitter:image:alt" content="SF Profiler recursion insights view for Salesforce debug logs" />
@@ -48,43 +48,87 @@
       {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
+        "@id": "https://sfprofiler.com/#software",
         "name": "SF Profiler",
+        "alternateName": [
+          "Salesforce Profiler",
+          "Salesforce Debug Log Profiler",
+          "Salesforce Debug Log Analyzer"
+        ],
         "applicationCategory": "DeveloperApplication",
-        "operatingSystem": "Web",
+        "applicationSubCategory": "Salesforce debug log profiler",
+        "operatingSystem": "Web browser and Visual Studio Code",
         "url": "https://sfprofiler.com/",
-        "description": "SF Profiler analyzes Salesforce debug logs for Apex, Flow, SOQL, DML, CPU time, governor limits, recursion, automation, and limit usage with on-device processing.",
+        "installUrl": "https://marketplace.visualstudio.com/items?itemName=force-creators.sf-profiler",
+        "downloadUrl": "https://marketplace.visualstudio.com/items?itemName=force-creators.sf-profiler",
+        "codeRepository": "https://github.com/force-creators/sf-profiler",
+        "sameAs": [
+          "https://github.com/force-creators/sf-profiler",
+          "https://marketplace.visualstudio.com/items?itemName=force-creators.sf-profiler"
+        ],
+        "softwareVersion": "0.1.4",
+        "description": "SF Profiler analyzes and profiles Salesforce debug logs in the browser and as a VS Code extension. For Apex, Flow, SOQL, DML, CPU time, governor limits, recursion, automation, and limit usage with on-device processing.",
         "screenshot": "https://sfprofiler.com/images/seo/sf-profiler-social.png",
+        "creator": {
+          "@type": "Person",
+          "name": "Matthew Swing-McKenzie",
+          "url": "https://www.linkedin.com/in/mjsmckenzie/"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "Force Creators",
+          "url": "https://sfprofiler.com/"
+        },
         "featureList": [
           "Apex execution profiling",
           "Salesforce Flow debugging",
           "Automation and recursion insights",
           "SOQL and DML usage analysis",
           "Governor limit and Flow limit usage analysis",
-          "Local browser-based log parsing"
+          "Local browser-based log parsing",
+          "VS Code extension for profiling .log files"
+        ],
+        "hasPart": [
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://sfprofiler.com/#web-app",
+            "name": "SF Profiler Web App",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Web browser",
+            "url": "https://sfprofiler.com/",
+            "description": "Browser-based Salesforce debug log profiler with local, on-device parsing."
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://sfprofiler.com/#vscode-extension",
+            "name": "SF Profiler for VS Code",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Visual Studio Code",
+            "url": "https://marketplace.visualstudio.com/items?itemName=force-creators.sf-profiler",
+            "installUrl": "https://marketplace.visualstudio.com/items?itemName=force-creators.sf-profiler",
+            "codeRepository": "https://github.com/force-creators/sf-profiler",
+            "description": "VS Code extension for profiling Salesforce Apex debug log files from Explorer or the editor."
+          }
         ],
         "offers": {
           "@type": "Offer",
           "price": "0",
           "priceCurrency": "USD"
         },
-        "keywords": "Salesforce debug log analyzer, Salesforce Profiler, Apex log analyzer, Flow profiler, Salesforce Flow debugging, Salesforce recursion debugging, governor limits, Flow limit usage"
+        "keywords": "Salesforce debug log analyzer, Salesforce debug log profiler, Salesforce Profiler, SF Profiler, Apex log analyzer, Apex log profiler, Flow profiler, Salesforce Flow debugging, Salesforce recursion debugging, governor limits, Flow limit usage, VS Code Salesforce profiler"
       }
     </script>
   </head>
   <body>
     <div id="root">
       <main>
-        <h1>SF Profiler Salesforce debug log analyzer</h1>
+        <h1>SF Profiler Salesforce debug log profiler for Web and VS Code</h1>
         <p>
-          Analyze Salesforce debug logs locally for Apex, Flow, automation, recursion, SOQL, DML, CPU time, and governor limit usage.
+          Analyze Salesforce debug logs locally in the browser or VS Code for Apex, Flow, automation, recursion, SOQL, DML, CPU time, and governor limit usage.
         </p>
-        <nav aria-label="SF Profiler SEO pages">
-          <a href="./salesforce-debug-log-analyzer/">Salesforce debug log analyzer</a>
-          <a href="./salesforce-flow-debugging/">Salesforce Flow debugging</a>
-          <a href="./salesforce-recursion-debugging/">Salesforce recursion debugging</a>
-          <a href="./salesforce-flow-limits/">Salesforce Flow limit usage</a>
-          <a href="./apex-log-profiler/">Apex log profiler</a>
-          <a href="./governor-limits-analysis/">Governor limits analysis</a>
+        <nav aria-label="SF Profiler links">
+          <a href="https://marketplace.visualstudio.com/items?itemName=force-creators.sf-profiler">SF Profiler VS Code extension</a>
+          <a href="https://github.com/force-creators/sf-profiler">SF Profiler on GitHub</a>
         </nav>
       </main>
     </div>

@@ -42,7 +42,6 @@ import {
   findNearestFlowElement,
   findNearestFlowName,
   formatTimelineContent,
-  formatTimelineTitle,
 } from './timelineFormatting';
 import { timelineGroups, type TimelineGroupId } from './timelineGroups';
 
@@ -70,6 +69,7 @@ const TIMELINE_LANE_SUBGROUP_ID = 'lane';
 const TIMELINE_LANE_STACK_CONTROL_SUBGROUP_ID = 'lane-stack-control';
 
 export function TimelineView({
+  focusRequest,
   isExpanded = false,
   isActive,
   onCollapseChange,
@@ -80,6 +80,7 @@ export function TimelineView({
   profile,
   selectedEntryId,
 }: {
+  focusRequest?: { entryId: number; nonce: number };
   isExpanded?: boolean;
   isActive: boolean;
   onCollapseChange?: (isCollapsed: boolean) => void;
@@ -93,6 +94,10 @@ export function TimelineView({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const timelineRef = useRef<Timeline | null>(null);
   const zoomedTimelineEntryIdRef = useRef<number | null>(null);
+  const pendingFocusRequestRef = useRef<{
+    entry: ApexLogEntry;
+    nonce: number;
+  } | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<ApexLogEntry>();
   const [isTimelineCollapsed, setIsTimelineCollapsed] = useState(false);
   const [isTimelineRendering, setIsTimelineRendering] = useState(true);
@@ -102,6 +107,10 @@ export function TimelineView({
   const [renderedTimelineProfile, setRenderedTimelineProfile] =
     useState<ApexLogProfile | null>(null);
   const timedEntries = useMemo(() => getTimedEntries(profile), [profile]);
+  const timedEntriesById = useMemo(
+    () => new Map(timedEntries.map((entry) => [entry.id, entry])),
+    [timedEntries]
+  );
   const entriesById = useMemo(
     () => new Map(profile.entries.map((entry) => [entry.id, entry])),
     [profile]
@@ -193,10 +202,6 @@ export function TimelineView({
             group: primaryGroupId,
             start: entry.time,
             subgroup: getTimelineSubgroupId(entry, primaryGroupId),
-            title: formatTimelineTitle(entry, {
-              entriesById,
-              includeFlowPath: true,
-            }),
             type: 'range',
             timelineOrder: getTimelineItemOrder(entry, primaryGroupId),
           };
@@ -215,11 +220,6 @@ export function TimelineView({
               group: 'dml' satisfies TimelineGroupId,
               subgroup: getTimelineSubgroupId(entry, 'dml'),
               timelineOrder: getTimelineItemOrder(entry, 'dml'),
-              title: formatTimelineTitle(entry, {
-                entriesById,
-                flowDmlCopy: true,
-                includeFlowPath: true,
-              }),
             });
 
             flowDataItems.push({
@@ -240,12 +240,6 @@ export function TimelineView({
               group: 'run' satisfies TimelineGroupId,
               subgroup: getTimelineSubgroupId(entry, 'run'),
               timelineOrder: getTimelineItemOrder(entry, 'run'),
-              title: formatTimelineTitle(entry, {
-                entriesById,
-                flowDmlCopy: true,
-                flowElementOnly: true,
-                includeFlowPath: true,
-              }),
             });
             itemById.set(`flow-workflow-dml-${entry.id}`, entry);
           }
@@ -263,11 +257,6 @@ export function TimelineView({
               group: 'soql' satisfies TimelineGroupId,
               subgroup: getTimelineSubgroupId(entry, 'soql'),
               timelineOrder: getTimelineItemOrder(entry, 'soql'),
-              title: formatTimelineTitle(entry, {
-                entriesById,
-                flowSoqlCopy: true,
-                includeFlowPath: true,
-              }),
             });
             itemById.set(`flow-soql-${entry.id}`, entry);
 
@@ -289,12 +278,6 @@ export function TimelineView({
               group: 'run' satisfies TimelineGroupId,
               subgroup: getTimelineSubgroupId(entry, 'run'),
               timelineOrder: getTimelineItemOrder(entry, 'run'),
-              title: formatTimelineTitle(entry, {
-                entriesById,
-                flowElementOnly: true,
-                flowSoqlCopy: true,
-                includeFlowPath: true,
-              }),
             });
             itemById.set(`flow-workflow-soql-${entry.id}`, entry);
           }
@@ -319,12 +302,6 @@ export function TimelineView({
                   group: 'run' satisfies TimelineGroupId,
                   subgroup: getTimelineSubgroupId(entry, 'run'),
                   timelineOrder: getTimelineItemOrder(entry, 'run'),
-                  title: formatTimelineTitle(entry, {
-                    entriesById,
-                    flowElementOnly: true,
-                    flowSoqlCopy: true,
-                    includeFlowPath: true,
-                  }),
                 }
               : undefined;
 
@@ -348,10 +325,6 @@ export function TimelineView({
                 group: 'run' satisfies TimelineGroupId,
                 subgroup: getTimelineSubgroupId(entry, 'run'),
                 timelineOrder: getTimelineItemOrder(entry, 'run'),
-                title: formatTimelineTitle(entry, {
-                  entriesById,
-                  includeFlowPath: true,
-                }),
               }
             : undefined;
 
@@ -526,6 +499,7 @@ export function TimelineView({
       timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
     };
   }, [
+    focusRequest?.nonce,
     isActive,
     isTimelineCollapsed,
     isTimelineRenderPending,
@@ -576,9 +550,7 @@ export function TimelineView({
       return;
     }
 
-    const selectedEntry = timedEntries.find(
-      (entry) => entry.id === selectedEntryId
-    );
+    const selectedEntry = timedEntriesById.get(selectedEntryId);
 
     if (!selectedEntry) {
       return;
@@ -589,7 +561,131 @@ export function TimelineView({
       animation: { animation: false },
       focus: true,
     });
-  }, [isActive, isTimelineRenderPending, selectedEntryId, timedEntries]);
+  }, [isActive, isTimelineRenderPending, selectedEntryId, timedEntriesById]);
+
+  useEffect(() => {
+    if (
+      !focusRequest ||
+      !isActive ||
+      isTimelineRenderPending ||
+      !timelineRef.current
+    ) {
+      return;
+    }
+
+    const selectedEntry = getTimelineFocusEntry(
+      focusRequest.entryId,
+      entriesById,
+      timedEntries,
+      timedEntriesById
+    );
+
+    if (!selectedEntry) {
+      return;
+    }
+
+    if (isTimelineCollapsed) {
+      setIsTimelineCollapsed(false);
+    }
+
+    pendingFocusRequestRef.current = {
+      entry: selectedEntry,
+      nonce: focusRequest.nonce,
+    };
+    setSelectedEntry(selectedEntry);
+    timelineRef.current.setSelection([selectedEntry.id], {
+      animation: { animation: false },
+      focus: false,
+    });
+  }, [
+    focusRequest,
+    entriesById,
+    isActive,
+    isTimelineCollapsed,
+    isTimelineRenderPending,
+    timedEntries,
+    timedEntriesById,
+  ]);
+
+  useEffect(() => {
+    const pendingFocusRequest = pendingFocusRequestRef.current;
+
+    if (
+      !pendingFocusRequest ||
+      !selectedEntry ||
+      pendingFocusRequest.entry.id !== selectedEntry.id ||
+      !isActive ||
+      isTimelineCollapsed ||
+      isTimelineRenderPending ||
+      !timelineRef.current
+    ) {
+      return undefined;
+    }
+
+    const frameIds: number[] = [];
+    const timeoutIds: number[] = [];
+
+    const applyFocus = () => {
+      if (pendingFocusRequestRef.current?.nonce !== pendingFocusRequest.nonce) {
+        return;
+      }
+
+      const timeline = timelineRef.current;
+      const container = containerRef.current;
+
+      if (!timeline || !container) {
+        return;
+      }
+
+      const { width, height } = container.getBoundingClientRect();
+
+      if (width === 0 || height === 0) {
+        return;
+      }
+
+      refreshTimelineView();
+      timeline.setSelection([pendingFocusRequest.entry.id], {
+        animation: { animation: false },
+        focus: false,
+      });
+      zoomTimelineToEntry(timeline, pendingFocusRequest.entry);
+      zoomedTimelineEntryIdRef.current = pendingFocusRequest.entry.id;
+    };
+
+    const scheduleFocusFrame = () => {
+      const frameId = window.requestAnimationFrame(applyFocus);
+      frameIds.push(frameId);
+    };
+
+    const firstFrameId = window.requestAnimationFrame(() => {
+      const secondFrameId = window.requestAnimationFrame(applyFocus);
+      frameIds.push(secondFrameId);
+    });
+    frameIds.push(firstFrameId);
+
+    [50, 150, 350].forEach((delay) => {
+      const timeoutId = window.setTimeout(scheduleFocusFrame, delay);
+      timeoutIds.push(timeoutId);
+    });
+    const clearFocusRequestId = window.setTimeout(() => {
+      if (pendingFocusRequestRef.current?.nonce === pendingFocusRequest.nonce) {
+        pendingFocusRequestRef.current = null;
+      }
+    }, 450);
+    timeoutIds.push(clearFocusRequestId);
+
+    return () => {
+      frameIds.forEach((frameId) => window.cancelAnimationFrame(frameId));
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    };
+  }, [
+    focusRequest?.nonce,
+    isActive,
+    isTimelineCollapsed,
+    isTimelineRenderPending,
+    refreshTimelineView,
+    selectedEntry,
+  ]);
 
   if (timedEntries.length === 0) {
     return (
@@ -669,11 +765,6 @@ export function TimelineView({
                 aria-pressed={isExpanded}
                 className="panel-collapse-toggle"
                 onClick={() => onExpandedChange(!isExpanded)}
-                title={
-                  isExpanded
-                    ? 'Restore summary panels'
-                    : 'Expand timeline to top of summary'
-                }
                 type="button"
               >
                 {isExpanded ? (
@@ -690,7 +781,6 @@ export function TimelineView({
               }
               className="panel-collapse-toggle"
               onClick={() => setIsTimelineCollapsed((collapsed) => !collapsed)}
-              title={isTimelineCollapsed ? 'Expand timeline' : 'Collapse timeline'}
               type="button"
             >
               {isTimelineCollapsed ? (
@@ -887,7 +977,6 @@ function createTimelineGroupTemplate(
     button.type = 'button';
     button.ariaExpanded = String(!isCollapsed);
     button.ariaLabel = `${isCollapsed ? 'Expand' : 'Collapse'} ${content} lane`;
-    button.title = `${isCollapsed ? 'Expand' : 'Collapse'} ${content} lane`;
     button.addEventListener('pointerdown', (event) => event.stopPropagation());
     button.addEventListener('mousedown', (event) => event.stopPropagation());
     button.addEventListener('click', (event) => {
@@ -908,6 +997,95 @@ function createTimelineGroupTemplate(
 
     return wrapper;
   };
+}
+
+function getTimelineFocusEntry(
+  entryId: number,
+  entriesById: Map<number, ApexLogEntry>,
+  timedEntries: ApexLogEntry[],
+  timedEntriesById: Map<number, ApexLogEntry>
+): ApexLogEntry | undefined {
+  const exactEntry = timedEntriesById.get(entryId);
+
+  if (exactEntry) {
+    return exactEntry;
+  }
+
+  const linkedEntry = entriesById.get(entryId);
+
+  if (!linkedEntry) {
+    return undefined;
+  }
+
+  let parent =
+    linkedEntry.parentId === undefined
+      ? undefined
+      : entriesById.get(linkedEntry.parentId);
+
+  while (parent) {
+    const timedParent = timedEntriesById.get(parent.id);
+
+    if (timedParent) {
+      return timedParent;
+    }
+
+    parent =
+      parent.parentId === undefined ? undefined : entriesById.get(parent.parentId);
+  }
+
+  const linkedEntryStart = linkedEntry.time;
+  const linkedEntryEnd =
+    typeof linkedEntry.endTime === 'number' ? linkedEntry.endTime : linkedEntryStart;
+  const enclosingEntry = timedEntries
+    .filter(
+      (entry) =>
+        entry.time <= linkedEntryStart &&
+        (entry.endTime ?? entry.time) >= linkedEntryEnd
+    )
+    .sort(
+      (left, right) =>
+        getTimelineDuration(left) - getTimelineDuration(right) ||
+        left.time - right.time
+    )[0];
+
+  if (enclosingEntry) {
+    return enclosingEntry;
+  }
+
+  return timedEntries
+    .map((entry) => ({
+      entry,
+      distance: getTimelineDistance(linkedEntryStart, linkedEntryEnd, entry),
+    }))
+    .sort(
+      (left, right) =>
+        left.distance - right.distance ||
+        left.entry.time - right.entry.time ||
+        left.entry.lineNumber - right.entry.lineNumber
+    )[0]?.entry;
+}
+
+function getTimelineDistance(
+  start: number,
+  end: number,
+  entry: ApexLogEntry
+): number {
+  const entryStart = entry.time;
+  const entryEnd = entry.endTime ?? entryStart;
+
+  if (entryStart <= end && entryEnd >= start) {
+    return 0;
+  }
+
+  if (entryEnd < start) {
+    return start - entryEnd;
+  }
+
+  return entryStart - end;
+}
+
+function getTimelineDuration(entry: ApexLogEntry): number {
+  return entry.duration ?? Math.max((entry.endTime ?? entry.time) - entry.time, 0);
 }
 
 function zoomTimelineToEntry(timeline: Timeline | null, entry: ApexLogEntry): void {

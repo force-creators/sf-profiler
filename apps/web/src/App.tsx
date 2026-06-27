@@ -10,6 +10,7 @@ import {
   parseApexLog,
   type PerformanceInsightThresholds,
 } from '@sfdc-profiler/core';
+import { AnnouncementBanner } from './components/app/AnnouncementBanner';
 import { AppHeader } from './components/app/AppHeader';
 import { EmptyState } from './components/app/EmptyState';
 import { AutomationView } from './components/automation/AutomationView';
@@ -58,6 +59,9 @@ export function App() {
   const [isRestoringLog, setIsRestoringLog] = useState(true);
   const [selectedTimelineEntryId, setSelectedTimelineEntryId] =
     useState<number>();
+  const [timelineFocusRequest, setTimelineFocusRequest] = useState<
+    { entryId: number; nonce: number } | undefined
+  >();
   const [selectedLimitEntryId, setSelectedLimitEntryId] = useState<number>();
   const [limitsJumpRequest, setLimitsJumpRequest] = useState<
     { section: LimitsSectionId; nonce: number } | undefined
@@ -87,6 +91,7 @@ export function App() {
   const resetViewSelections = useCallback(() => {
     setActiveView('summary');
     setSelectedTimelineEntryId(undefined);
+    setTimelineFocusRequest(undefined);
     setSelectedLimitEntryId(undefined);
     setLimitsJumpRequest(undefined);
     setInsightJumpRequest(undefined);
@@ -327,8 +332,15 @@ export function App() {
     await handleFileLoad(file);
   }
 
-  function openSummaryTimeline(entryId?: number) {
+  function focusTimelineEntry(entryId?: number) {
     setSelectedTimelineEntryId(entryId);
+
+    if (entryId !== undefined) {
+      setTimelineFocusRequest({ entryId, nonce: Date.now() });
+      setIsSummaryTimelineCollapsed(false);
+      setIsSummaryTimelineExpanded(true);
+    }
+
     setActiveView('summary');
   }
 
@@ -441,6 +453,7 @@ export function App() {
       onDragOver={handleDropZoneDragOver}
       onDrop={handleDropZoneDrop}
     >
+      {!loadedLog && !isVsCodeHost && <AnnouncementBanner />}
       <section className="workspace">
         {!loadedLog ? (
           <EmptyState
@@ -479,7 +492,7 @@ export function App() {
                     onOpenAutomation={openAutomationView}
                     onOpenInsights={openInsightsView}
                     onOpenLimitsSection={openLimitsSection}
-                    onSelectTimelineEntry={openSummaryTimeline}
+                    onSelectTimelineEntry={focusTimelineEntry}
                     onTopCollapseChange={setIsSummaryTopCollapsed}
                     selectedEntryId={selectedTimelineEntryId}
                   />
@@ -504,6 +517,7 @@ export function App() {
                     onOpenAutomation={openAutomationView}
                     onShowInLimits={openLimitsView}
                     profile={loadedLog.profile}
+                    focusRequest={timelineFocusRequest}
                     selectedEntryId={selectedTimelineEntryId}
                   />
                 </div>
@@ -512,7 +526,7 @@ export function App() {
             {activeView === 'limits' && (
               <LimitsView
                 jumpRequest={limitsJumpRequest}
-                onSelectTimelineEntry={openSummaryTimeline}
+                onSelectTimelineEntry={focusTimelineEntry}
                 profile={loadedLog.profile}
                 selectedEntryId={selectedLimitEntryId}
               />
@@ -521,7 +535,7 @@ export function App() {
               <AutomationView
                 jumpRequest={automationJumpRequest}
                 onOpenInsight={openInsightsView}
-                onSelectTimelineEntry={openSummaryTimeline}
+                onSelectTimelineEntry={focusTimelineEntry}
                 profile={loadedLog.profile}
               />
             )}
@@ -529,7 +543,7 @@ export function App() {
               <InsightsView
                 jumpRequest={insightJumpRequest}
                 onOpenAutomation={openAutomationView}
-                onSelectTimelineEntry={openSummaryTimeline}
+                onSelectTimelineEntry={focusTimelineEntry}
                 profile={loadedLog.profile}
               />
             )}

@@ -80,11 +80,11 @@ export function EmptyState({
         </aside>
       )}
       <SocialLinks className="empty-state-social-links" />
-      {!isRestoring && (
-        <p className="empty-state-privacy-note" role="note">
-          All log processing happens on your device; no log data is sent to or stored on external servers.
-        </p>
-      )}
+      <p className="empty-state-rank">
+        SF Profiler is a Salesforce debug log profiler for Web and VS Code that
+        finds slow Apex, duplicate SOQL, DML cost, recursion, automation
+        loops, CPU time, and governor limit pressure locally on your device.
+      </p>
       <p className="empty-state-copyright">
         Powered by SF Profiler. Copyright 2026 Matthew Swing-McKenzie &amp; Force
         Creators.

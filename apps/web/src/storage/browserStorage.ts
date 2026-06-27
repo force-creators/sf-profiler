@@ -5,6 +5,7 @@ import {
 import type { AppTheme } from '../types';
 import { deleteStoredLogDatabase } from './indexedDbLogs';
 import {
+  dismissedAnnouncementBannerStorageKey,
   performanceThresholdsStorageKey,
   storedLogPrefix,
   storedRawPrefix,
@@ -98,6 +99,7 @@ export async function clearBrowserStorage() {
 
       if (
         key === themeStorageKey ||
+        key === dismissedAnnouncementBannerStorageKey ||
         key === performanceThresholdsStorageKey ||
         (key !== null &&
           (key.startsWith(storedLogPrefix) || key.startsWith(storedRawPrefix)))

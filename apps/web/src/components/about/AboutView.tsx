@@ -11,7 +11,7 @@ const aboutHighlights = [
   {
     icon: LockKeyhole,
     label: 'Local-first',
-    description: 'Debug logs are parsed in the browser or desktop shell.',
+    description: 'Debug logs are parsed in the browser or VS Code extension.',
   },
   {
     icon: Activity,
