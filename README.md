@@ -50,7 +50,7 @@ The timeline connects the transaction in execution order: Apex, Workflow/Flow,
 SOQL, DML, and other events. It is designed for the "what happened first?" and
 "why did this happen again?" questions that raw debug logs make painful.
 
-![Dark mode summary view](apps/vscode/media/overview/summary-dark.png)
+![SF Profiler full-screen timeline view](apps/vscode/media/overview/timeline-detail.png)
 
 ## Project Layout
 

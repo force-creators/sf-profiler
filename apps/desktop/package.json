@@ -1,6 +1,6 @@
 {
   "name": "@sfdc-profiler/desktop",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "private": true,
   "type": "commonjs",
   "main": "dist/main.js",

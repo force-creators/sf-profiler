@@ -2,7 +2,7 @@
   "name": "sf-profiler",
   "displayName": "SF Profiler",
   "description": "Profile Salesforce Apex debug logs for Apex, Flow, SOQL, DML, and governor limits from VS Code.",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "type": "commonjs",
   "publisher": "force-creators",
   "author": {
