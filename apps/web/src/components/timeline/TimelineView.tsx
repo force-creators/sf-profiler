@@ -49,6 +49,8 @@ type TimelineItemId = number | string;
 type TimelineDataItem = DataItem & {
   timelineOrder: number;
 };
+type TimelineFilterId = 'apex' | 'dml' | 'soql' | 'flow' | 'other';
+type TimelineFilters = Record<TimelineFilterId, boolean>;
 type CodeUnitLimitUsage = Partial<
   Record<
     | 'soqlQueries'
@@ -67,6 +69,23 @@ type CodeUnitLimitUsage = Partial<
 
 const TIMELINE_LANE_SUBGROUP_ID = 'lane';
 const TIMELINE_LANE_STACK_CONTROL_SUBGROUP_ID = 'lane-stack-control';
+const DEFAULT_TIMELINE_FILTERS: TimelineFilters = {
+  apex: true,
+  dml: true,
+  soql: true,
+  flow: true,
+  other: true,
+};
+const TIMELINE_FILTER_CONTROLS: Array<{
+  id: TimelineFilterId;
+  label: string;
+}> = [
+  { id: 'apex', label: 'Apex' },
+  { id: 'dml', label: 'DML' },
+  { id: 'soql', label: 'SOQL' },
+  { id: 'flow', label: 'Flow' },
+  { id: 'other', label: 'Other' },
+];
 
 export function TimelineView({
   focusRequest,
@@ -101,6 +120,9 @@ export function TimelineView({
   const [selectedEntry, setSelectedEntry] = useState<ApexLogEntry>();
   const [isTimelineCollapsed, setIsTimelineCollapsed] = useState(false);
   const [isTimelineRendering, setIsTimelineRendering] = useState(true);
+  const [timelineFilters, setTimelineFilters] = useState<TimelineFilters>(
+    () => ({ ...DEFAULT_TIMELINE_FILTERS })
+  );
   const [collapsedTimelineLaneIds, setCollapsedTimelineLaneIds] = useState<
     Set<TimelineGroupId>
   >(() => new Set(['soql', 'dml']));
@@ -114,6 +136,10 @@ export function TimelineView({
   const entriesById = useMemo(
     () => new Map(profile.entries.map((entry) => [entry.id, entry])),
     [profile]
+  );
+  const timelineFilterCounts = useMemo(
+    () => getTimelineFilterCounts(timedEntries, entriesById),
+    [entriesById, timedEntries]
   );
   const isTimelineRenderPending =
     isTimelineRendering || renderedTimelineProfile !== profile;
@@ -142,6 +168,12 @@ export function TimelineView({
 
       return nextCollapsedLaneIds;
     });
+  }, []);
+  const toggleTimelineFilter = useCallback((filterId: TimelineFilterId) => {
+    setTimelineFilters((filters) => ({
+      ...filters,
+      [filterId]: !filters[filterId],
+    }));
   }, []);
 
   useEffect(() => {
@@ -180,172 +212,25 @@ export function TimelineView({
         getVisibleTimelineGroups(
           timedEntries,
           entriesById,
-          collapsedTimelineLaneIds
+          collapsedTimelineLaneIds,
+          timelineFilters
         )
       );
+      const itemRecords = timedEntries.flatMap((entry) =>
+        getTimelineItemRecords(entry, entriesById)
+      );
+      const visibleItemRecords = itemRecords.filter(({ entry, item }) =>
+        shouldShowTimelineItem(entry, item, entriesById, timelineFilters)
+      );
+
+      visibleItemRecords.forEach(({ entry, item }) => {
+        if (item.id !== undefined) {
+          itemById.set(item.id, entry);
+        }
+      });
+
       const items = new DataSet<TimelineDataItem>(
-        timedEntries.flatMap((entry) => {
-          itemById.set(entry.id, entry);
-          const flowRole = getTimelineFlowRole(entry, entriesById);
-          const primaryGroupId = getTimelinePrimaryGroupId(entry);
-
-          const primaryItem: TimelineDataItem = {
-            id: entry.id,
-            className: getTimelineItemClassName(
-              entry,
-              entriesById,
-              primaryGroupId,
-              flowRole
-            ),
-            content: formatTimelineContent(entry),
-            end: entry.endTime,
-            group: primaryGroupId,
-            start: entry.time,
-            subgroup: getTimelineSubgroupId(entry, primaryGroupId),
-            type: 'range',
-            timelineOrder: getTimelineItemOrder(entry, primaryGroupId),
-          };
-
-          const flowDataItems: TimelineDataItem[] = [];
-
-          if (isFlowDmlEntry(entry)) {
-            flowDataItems.push({
-              ...primaryItem,
-              className: getTimelineItemClassName(entry, entriesById, 'dml'),
-              content: formatTimelineContent(entry, {
-                entriesById,
-                flowDmlCopy: true,
-              }),
-              end: getTimelineVisualEnd(entry),
-              group: 'dml' satisfies TimelineGroupId,
-              subgroup: getTimelineSubgroupId(entry, 'dml'),
-              timelineOrder: getTimelineItemOrder(entry, 'dml'),
-            });
-
-            flowDataItems.push({
-              ...primaryItem,
-              id: `flow-workflow-dml-${entry.id}`,
-              className: `${getTimelineItemClassName(
-                entry,
-                entriesById,
-                'run',
-                flowRole
-              )} timeline-item-dml-mirror`,
-              content: formatTimelineContent(entry, {
-                entriesById,
-                flowDmlCopy: true,
-                flowElementOnly: true,
-              }),
-              end: getTimelineVisualEnd(entry),
-              group: 'run' satisfies TimelineGroupId,
-              subgroup: getTimelineSubgroupId(entry, 'run'),
-              timelineOrder: getTimelineItemOrder(entry, 'run'),
-            });
-            itemById.set(`flow-workflow-dml-${entry.id}`, entry);
-          }
-
-          if (isFlowSoqlEntry(entry)) {
-            flowDataItems.push({
-              ...primaryItem,
-              id: `flow-soql-${entry.id}`,
-              className: getTimelineItemClassName(entry, entriesById, 'soql'),
-              content: formatTimelineContent(entry, {
-                entriesById,
-                flowSoqlCopy: true,
-              }),
-              end: getTimelineVisualEnd(entry),
-              group: 'soql' satisfies TimelineGroupId,
-              subgroup: getTimelineSubgroupId(entry, 'soql'),
-              timelineOrder: getTimelineItemOrder(entry, 'soql'),
-            });
-            itemById.set(`flow-soql-${entry.id}`, entry);
-
-            flowDataItems.push({
-              ...primaryItem,
-              id: `flow-workflow-soql-${entry.id}`,
-              className: `${getTimelineItemClassName(
-                entry,
-                entriesById,
-                'run',
-                flowRole
-              )} timeline-item-soql-mirror`,
-              content: formatTimelineContent(entry, {
-                entriesById,
-                flowElementOnly: true,
-                flowSoqlCopy: true,
-              }),
-              end: getTimelineVisualEnd(entry),
-              group: 'run' satisfies TimelineGroupId,
-              subgroup: getTimelineSubgroupId(entry, 'run'),
-              timelineOrder: getTimelineItemOrder(entry, 'run'),
-            });
-            itemById.set(`flow-workflow-soql-${entry.id}`, entry);
-          }
-
-          const flowSoqlExecutionItem: TimelineDataItem | undefined =
-            isFlowSoqlExecutionEntry(entry, entriesById)
-              ? {
-                  ...primaryItem,
-                  id: `flow-workflow-soql-${entry.id}`,
-                  className: `${getTimelineItemClassName(
-                    entry,
-                    entriesById,
-                    'run',
-                    flowRole
-                  )} timeline-item-soql-mirror`,
-                  content: formatTimelineContent(entry, {
-                    entriesById,
-                    flowElementOnly: true,
-                    flowSoqlCopy: true,
-                  }),
-                  end: getTimelineVisualEnd(entry),
-                  group: 'run' satisfies TimelineGroupId,
-                  subgroup: getTimelineSubgroupId(entry, 'run'),
-                  timelineOrder: getTimelineItemOrder(entry, 'run'),
-                }
-              : undefined;
-
-          if (flowSoqlExecutionItem) {
-            itemById.set(`flow-workflow-soql-${entry.id}`, entry);
-          }
-
-          const apexDataItem: TimelineDataItem | undefined =
-            isApexDmlEntry(entry, entriesById) || isApexSoqlEntry(entry, entriesById)
-            ? {
-                ...primaryItem,
-                id: `apex-data-${entry.id}`,
-                className: `${getTimelineItemClassName(
-                  entry,
-                  entriesById,
-                  'run'
-                )}${entry.type === 'dml' ? ' timeline-item-dml-mirror' : ''}${
-                  entry.type === 'soql' ? ' timeline-item-soql-mirror' : ''
-                }`,
-                content: primaryItem.content,
-                group: 'run' satisfies TimelineGroupId,
-                subgroup: getTimelineSubgroupId(entry, 'run'),
-                timelineOrder: getTimelineItemOrder(entry, 'run'),
-              }
-            : undefined;
-
-          if (apexDataItem) {
-            itemById.set(`apex-data-${entry.id}`, entry);
-          }
-
-          const mirroredItems = [
-            ...flowDataItems,
-            ...(flowSoqlExecutionItem ? [flowSoqlExecutionItem] : []),
-            ...(apexDataItem ? [apexDataItem] : []),
-          ];
-
-          if (flowDataItems.length > 0) {
-            return mirroredItems;
-          }
-
-          return mirroredItems.length > 0
-            ? [primaryItem, ...mirroredItems]
-            : [primaryItem];
-        })
+        visibleItemRecords.map(({ item }) => item)
       );
       const options: TimelineOptions = {
         autoResize: true,
@@ -391,7 +276,7 @@ export function TimelineView({
       timeline.on(
         'select',
         ({ items: selectedItems }: { items: TimelineItemId[] }) => {
-        setSelectedEntry(itemById.get(selectedItems[0]));
+          setSelectedEntry(itemById.get(selectedItems[0]));
         }
       );
       timeline.on('doubleClick', (properties: TimelineEventPropertiesResult) => {
@@ -442,6 +327,7 @@ export function TimelineView({
     entriesById,
     profile,
     timedEntries,
+    timelineFilters,
     toggleTimelineLaneStack,
   ]);
 
@@ -754,6 +640,40 @@ export function TimelineView({
         <div className="panel-title">
           <Rows3 size={18} aria-hidden="true" />
           <h3>Timeline</h3>
+          {!isTimelineCollapsed && (
+            <div
+              className="timeline-filter-bar"
+              role="group"
+              aria-label="Timeline filters"
+            >
+              {TIMELINE_FILTER_CONTROLS.map((filter) => {
+                const isChecked = timelineFilters[filter.id];
+
+                return (
+                  <label
+                    className={`timeline-filter-toggle${
+                      isChecked ? ' timeline-filter-toggle-active' : ''
+                    }`}
+                    key={filter.id}
+                  >
+                    <input
+                      checked={isChecked}
+                      onChange={() => toggleTimelineFilter(filter.id)}
+                      type="checkbox"
+                    />
+                    <span
+                      className="timeline-filter-toggle-indicator"
+                      aria-hidden="true"
+                    />
+                    <span>{filter.label}</span>
+                    <span className="timeline-filter-toggle-count">
+                      {timelineFilterCounts[filter.id].toLocaleString()}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
           <div className="timeline-panel-actions">
             {!isTimelineCollapsed && onExpandedChange && (
               <button
@@ -926,17 +846,287 @@ export function TimelineView({
   );
 }
 
+function getTimelineItemRecords(
+  entry: ApexLogEntry,
+  entriesById: Map<number, ApexLogEntry>
+): Array<{ entry: ApexLogEntry; item: TimelineDataItem }> {
+  const flowRole = getTimelineFlowRole(entry, entriesById);
+  const primaryGroupId = getTimelinePrimaryGroupId(entry);
+  const primaryItem: TimelineDataItem = {
+    id: entry.id,
+    className: getTimelineItemClassName(
+      entry,
+      entriesById,
+      primaryGroupId,
+      flowRole
+    ),
+    content: formatTimelineContent(entry),
+    end: entry.endTime,
+    group: primaryGroupId,
+    start: entry.time,
+    subgroup: getTimelineSubgroupId(entry, primaryGroupId),
+    type: 'range',
+    timelineOrder: getTimelineItemOrder(entry, primaryGroupId),
+  };
+  const flowDataItems: TimelineDataItem[] = [];
+
+  if (isFlowDmlEntry(entry)) {
+    flowDataItems.push({
+      ...primaryItem,
+      className: getTimelineItemClassName(entry, entriesById, 'dml'),
+      content: formatTimelineContent(entry, {
+        entriesById,
+        flowDmlCopy: true,
+      }),
+      end: getTimelineVisualEnd(entry),
+      group: 'dml' satisfies TimelineGroupId,
+      subgroup: getTimelineSubgroupId(entry, 'dml'),
+      timelineOrder: getTimelineItemOrder(entry, 'dml'),
+    });
+
+    flowDataItems.push({
+      ...primaryItem,
+      id: `flow-workflow-dml-${entry.id}`,
+      className: `${getTimelineItemClassName(
+        entry,
+        entriesById,
+        'run',
+        flowRole
+      )} timeline-item-dml-mirror`,
+      content: formatTimelineContent(entry, {
+        entriesById,
+        flowDmlCopy: true,
+        flowElementOnly: true,
+      }),
+      end: getTimelineVisualEnd(entry),
+      group: 'run' satisfies TimelineGroupId,
+      subgroup: getTimelineSubgroupId(entry, 'run'),
+      timelineOrder: getTimelineItemOrder(entry, 'run'),
+    });
+  }
+
+  if (isFlowSoqlEntry(entry)) {
+    flowDataItems.push({
+      ...primaryItem,
+      id: `flow-soql-${entry.id}`,
+      className: getTimelineItemClassName(entry, entriesById, 'soql'),
+      content: formatTimelineContent(entry, {
+        entriesById,
+        flowSoqlCopy: true,
+      }),
+      end: getTimelineVisualEnd(entry),
+      group: 'soql' satisfies TimelineGroupId,
+      subgroup: getTimelineSubgroupId(entry, 'soql'),
+      timelineOrder: getTimelineItemOrder(entry, 'soql'),
+    });
+
+    flowDataItems.push({
+      ...primaryItem,
+      id: `flow-workflow-soql-${entry.id}`,
+      className: `${getTimelineItemClassName(
+        entry,
+        entriesById,
+        'run',
+        flowRole
+      )} timeline-item-soql-mirror`,
+      content: formatTimelineContent(entry, {
+        entriesById,
+        flowElementOnly: true,
+        flowSoqlCopy: true,
+      }),
+      end: getTimelineVisualEnd(entry),
+      group: 'run' satisfies TimelineGroupId,
+      subgroup: getTimelineSubgroupId(entry, 'run'),
+      timelineOrder: getTimelineItemOrder(entry, 'run'),
+    });
+  }
+
+  const flowSoqlExecutionItem: TimelineDataItem | undefined =
+    isFlowSoqlExecutionEntry(entry, entriesById)
+      ? {
+          ...primaryItem,
+          id: `flow-workflow-soql-${entry.id}`,
+          className: `${getTimelineItemClassName(
+            entry,
+            entriesById,
+            'run',
+            flowRole
+          )} timeline-item-soql-mirror`,
+          content: formatTimelineContent(entry, {
+            entriesById,
+            flowElementOnly: true,
+            flowSoqlCopy: true,
+          }),
+          end: getTimelineVisualEnd(entry),
+          group: 'run' satisfies TimelineGroupId,
+          subgroup: getTimelineSubgroupId(entry, 'run'),
+          timelineOrder: getTimelineItemOrder(entry, 'run'),
+        }
+      : undefined;
+
+  const apexDataItem: TimelineDataItem | undefined =
+    isApexDmlEntry(entry, entriesById) || isApexSoqlEntry(entry, entriesById)
+      ? {
+          ...primaryItem,
+          id: `apex-data-${entry.id}`,
+          className: `${getTimelineItemClassName(entry, entriesById, 'run')}${
+            entry.type === 'dml' ? ' timeline-item-dml-mirror' : ''
+          }${entry.type === 'soql' ? ' timeline-item-soql-mirror' : ''}`,
+          content: primaryItem.content,
+          group: 'run' satisfies TimelineGroupId,
+          subgroup: getTimelineSubgroupId(entry, 'run'),
+          timelineOrder: getTimelineItemOrder(entry, 'run'),
+        }
+      : undefined;
+  const mirroredItems = [
+    ...flowDataItems,
+    ...(flowSoqlExecutionItem ? [flowSoqlExecutionItem] : []),
+    ...(apexDataItem ? [apexDataItem] : []),
+  ];
+  const items =
+    flowDataItems.length > 0
+      ? mirroredItems
+      : mirroredItems.length > 0
+        ? [primaryItem, ...mirroredItems]
+        : [primaryItem];
+
+  return items.map((item) => ({ entry, item }));
+}
+
+function getTimelineFilterCounts(
+  timedEntries: ApexLogEntry[],
+  entriesById: Map<number, ApexLogEntry>
+): Record<TimelineFilterId, number> {
+  const counts: Record<TimelineFilterId, number> = {
+    apex: 0,
+    dml: 0,
+    soql: 0,
+    flow: 0,
+    other: 0,
+  };
+
+  for (const entry of timedEntries) {
+    if (isApexTimelineEntry(entry, entriesById)) {
+      counts.apex += 1;
+    }
+
+    if (isDmlTimelineEntry(entry)) {
+      counts.dml += 1;
+    }
+
+    if (isQueryTimelineEntry(entry, entriesById)) {
+      counts.soql += 1;
+    }
+
+    if (isFlowTimelineEntry(entry, entriesById)) {
+      counts.flow += 1;
+    }
+
+    if (isOtherTimelineEntry(entry)) {
+      counts.other += 1;
+    }
+  }
+
+  return counts;
+}
+
+function shouldShowTimelineItem(
+  entry: ApexLogEntry,
+  item: TimelineDataItem,
+  entriesById: Map<number, ApexLogEntry>,
+  filters: TimelineFilters
+): boolean {
+  const groupId = item.group as TimelineGroupId | undefined;
+
+  if (!filters.apex && isApexTimelineEntry(entry, entriesById)) {
+    return false;
+  }
+
+  if (!filters.flow && isFlowTimelineEntry(entry, entriesById)) {
+    return false;
+  }
+
+  if (!filters.dml && isDmlTimelineEntry(entry)) {
+    return false;
+  }
+
+  if (
+    !filters.soql &&
+    (groupId === 'soql' || isQueryTimelineEntry(entry, entriesById))
+  ) {
+    return false;
+  }
+
+  if (!filters.other && isOtherTimelineEntry(entry)) {
+    return false;
+  }
+
+  return true;
+}
+
+function isApexTimelineEntry(
+  entry: ApexLogEntry,
+  entriesById: Map<number, ApexLogEntry>
+): boolean {
+  return (
+    entry.type === 'apex' ||
+    isApexDmlEntry(entry, entriesById) ||
+    isApexSoqlEntry(entry, entriesById)
+  );
+}
+
+function isDmlTimelineEntry(entry: ApexLogEntry): boolean {
+  return entry.type === 'dml' || isFlowDmlEntry(entry);
+}
+
+function isQueryTimelineEntry(
+  entry: ApexLogEntry,
+  entriesById: Map<number, ApexLogEntry>
+): boolean {
+  return (
+    entry.type === 'soql' ||
+    isFlowSoqlEntry(entry) ||
+    isFlowSoqlExecutionEntry(entry, entriesById)
+  );
+}
+
+function isFlowTimelineEntry(
+  entry: ApexLogEntry,
+  entriesById: Map<number, ApexLogEntry>
+): boolean {
+  return (
+    entry.type === 'workflow' ||
+    Boolean(entry.metadata?.flow) ||
+    isFlowDmlEntry(entry) ||
+    isFlowSoqlEntry(entry) ||
+    isFlowSoqlExecutionEntry(entry, entriesById)
+  );
+}
+
+function isOtherTimelineEntry(entry: ApexLogEntry): boolean {
+  return entry.type === 'other';
+}
+
 function getVisibleTimelineGroups(
   timedEntries: ApexLogEntry[],
   entriesById: Map<number, ApexLogEntry>,
-  collapsedLaneIds: Set<TimelineGroupId>
+  collapsedLaneIds: Set<TimelineGroupId>,
+  filters: TimelineFilters
 ): DataGroup[] {
   return timelineGroups
-    .filter((group) =>
-      timedEntries.some((entry) =>
+    .filter((group) => {
+      if (group.id === 'dml' && !filters.dml) {
+        return false;
+      }
+
+      if (group.id === 'soql' && !filters.soql) {
+        return false;
+      }
+
+      return timedEntries.some((entry) =>
         getTimelineGroupIds(entry, entriesById).includes(group.id)
-      )
-    )
+      );
+    })
     .map((group) => {
       const isCollapsed = collapsedLaneIds.has(group.id);
       const subgroupStack =
