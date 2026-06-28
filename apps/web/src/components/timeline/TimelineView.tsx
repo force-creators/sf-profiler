@@ -7,7 +7,14 @@ import {
   Rows3,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { DataSet } from 'vis-data';
 import {
   Timeline,
@@ -69,6 +76,10 @@ type CodeUnitLimitUsage = Partial<
 
 const TIMELINE_LANE_SUBGROUP_ID = 'lane';
 const TIMELINE_LANE_STACK_CONTROL_SUBGROUP_ID = 'lane-stack-control';
+const DEFAULT_TIMELINE_DETAIL_WIDTH = 420;
+const MIN_TIMELINE_DETAIL_WIDTH = 320;
+const MIN_TIMELINE_STAGE_WIDTH = 520;
+const TIMELINE_DETAIL_RESIZER_SIZE = 10;
 const DEFAULT_TIMELINE_FILTERS: TimelineFilters = {
   apex: true,
   dml: true,
@@ -110,9 +121,11 @@ export function TimelineView({
   profile: ApexLogProfile;
   selectedEntryId?: number;
 }) {
+  const layoutRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const timelineRef = useRef<Timeline | null>(null);
   const zoomedTimelineEntryIdRef = useRef<number | null>(null);
+  const isResizingDetailRef = useRef(false);
   const pendingFocusRequestRef = useRef<{
     entry: ApexLogEntry;
     nonce: number;
@@ -120,6 +133,9 @@ export function TimelineView({
   const [selectedEntry, setSelectedEntry] = useState<ApexLogEntry>();
   const [isTimelineCollapsed, setIsTimelineCollapsed] = useState(false);
   const [isTimelineRendering, setIsTimelineRendering] = useState(true);
+  const [timelineDetailWidth, setTimelineDetailWidth] = useState(
+    DEFAULT_TIMELINE_DETAIL_WIDTH
+  );
   const [timelineFilters, setTimelineFilters] = useState<TimelineFilters>(
     () => ({ ...DEFAULT_TIMELINE_FILTERS })
   );
@@ -179,6 +195,44 @@ export function TimelineView({
   useEffect(() => {
     onCollapseChange?.(isTimelineCollapsed);
   }, [isTimelineCollapsed, onCollapseChange]);
+
+  useEffect(() => {
+    function stopDetailResize() {
+      if (!isResizingDetailRef.current) {
+        return;
+      }
+
+      isResizingDetailRef.current = false;
+      document.body.classList.remove('is-resizing-timeline-detail');
+    }
+
+    function resizeDetailPanel(event: PointerEvent) {
+      if (!isResizingDetailRef.current || !layoutRef.current) {
+        return;
+      }
+
+      const rect = layoutRef.current.getBoundingClientRect();
+      const maxDetailWidth = Math.max(
+        MIN_TIMELINE_DETAIL_WIDTH,
+        rect.width - TIMELINE_DETAIL_RESIZER_SIZE - MIN_TIMELINE_STAGE_WIDTH
+      );
+      const nextDetailWidth = Math.min(
+        Math.max(rect.right - event.clientX, MIN_TIMELINE_DETAIL_WIDTH),
+        maxDetailWidth
+      );
+
+      setTimelineDetailWidth(nextDetailWidth);
+    }
+
+    window.addEventListener('pointermove', resizeDetailPanel);
+    window.addEventListener('pointerup', stopDetailResize);
+
+    return () => {
+      window.removeEventListener('pointermove', resizeDetailPanel);
+      window.removeEventListener('pointerup', stopDetailResize);
+      document.body.classList.remove('is-resizing-timeline-detail');
+    };
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -622,6 +676,15 @@ export function TimelineView({
     timelineRef.current?.setSelection([]);
   }
 
+  function startDetailResize() {
+    isResizingDetailRef.current = true;
+    document.body.classList.add('is-resizing-timeline-detail');
+  }
+
+  const timelineLayoutStyle = {
+    '--timeline-detail-width': `${timelineDetailWidth}px`,
+  } as CSSProperties;
+
   return (
     <div
       className={
@@ -631,6 +694,8 @@ export function TimelineView({
             ? 'timeline-layout timeline-layout-collapsed'
             : 'timeline-layout'
       }
+      ref={layoutRef}
+      style={timelineLayoutStyle}
     >
       <section
         className={`panel timeline-panel${
@@ -735,112 +800,122 @@ export function TimelineView({
       </section>
 
       {hasSelection && selectedEntry && !isTimelineCollapsed && (
-        <section className="panel timeline-detail">
-          <div className="panel-title timeline-detail-title">
-            <div className="timeline-detail-title-label">
-              <FileText size={18} aria-hidden="true" />
-              <h3>{selectedEntry.event || 'Selection'}</h3>
-            </div>
-            <button
-              aria-label="Close timeline selection details"
-              className="timeline-detail-close"
-              onClick={clearSelection}
-              type="button"
-            >
-              <X size={16} aria-hidden="true" />
-            </button>
-          </div>
-          <>
-            <dl>
-              <div>
-                <dt>Detail</dt>
-                <dd>{selectedEntry.detail || selectedEntry.type}</dd>
+        <>
+          <button
+            aria-label="Resize timeline details"
+            className="timeline-detail-resizer"
+            onPointerDown={startDetailResize}
+            type="button"
+          />
+
+          <section className="panel timeline-detail">
+            <div className="panel-title timeline-detail-title">
+              <div className="timeline-detail-title-label">
+                <FileText size={18} aria-hidden="true" />
+                <h3>{selectedEntry.event || 'Selection'}</h3>
               </div>
-              {selectedFlowName && (
-                <div>
-                  <dt>Flow</dt>
-                  <dd>{selectedFlowName}</dd>
-                </div>
-              )}
-              {selectedFlowElementName && (
-                <div>
-                  <dt>Flow Element</dt>
-                  <dd>{selectedFlowElementName}</dd>
-                </div>
-              )}
-              {selectedFlowElementType && (
-                <div>
-                  <dt>Flow Element Type</dt>
-                  <dd>{selectedFlowElementType}</dd>
-                </div>
-              )}
-              {selectedFlowDataLabels.length > 0 && (
-                <div>
-                  <dt>Flow Data</dt>
-                  <dd>{selectedFlowDataLabels.join(', ')}</dd>
-                </div>
-              )}
-              {selectedLimitRows.length > 0 && (
-                <div>
-                  <dt>Limits Consumed</dt>
-                  <dd>
-                    <ul className="timeline-detail-metrics">
-                      {selectedLimitRows.map((row) => (
-                        <li key={row.label}>
-                          <span>{row.label}</span>
-                          <span>{row.value}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </dd>
-                </div>
-              )}
-              <div>
-                <dt>Time</dt>
-                <dd>
-                  {selectedEntry.time} ms - {selectedEntry.endTime} ms
-                </dd>
-              </div>
-              <div>
-                <dt>Duration</dt>
-                <dd>{selectedEntry.duration} ms</dd>
-              </div>
-              <div>
-                <dt>Line</dt>
-                <dd>{selectedEntry.lineNumber}</dd>
-              </div>
-            </dl>
-            <div className="timeline-detail-actions">
-              {onJumpToRawLogLine && (
-                <button
-                  className="timeline-detail-action timeline-detail-action-secondary"
-                  onClick={() => onJumpToRawLogLine(selectedEntry.lineNumber)}
-                  type="button"
-                >
-                  Jump to Raw Log Line {selectedEntry.lineNumber}
-                </button>
-              )}
-              {selectedAutomationUnitId && (
-                <button
-                  className="timeline-detail-action timeline-detail-action-secondary"
-                  onClick={() => onOpenAutomation(selectedAutomationUnitId)}
-                  type="button"
-                >
-                  Open Automation
-                </button>
-              )}
-              {(selectedEntry.type === 'soql' || selectedEntry.type === 'dml') && (
-                <button
-                className="timeline-detail-action"
-                onClick={() => onShowInLimits(selectedEntry.id)}
+              <button
+                aria-label="Close timeline selection details"
+                className="timeline-detail-close"
+                onClick={clearSelection}
                 type="button"
               >
-                Show in Limits
+                <X size={16} aria-hidden="true" />
               </button>
-              )}
             </div>
-          </>
-        </section>
+            <>
+              <dl>
+                <div>
+                  <dt>Detail</dt>
+                  <dd>{selectedEntry.detail || selectedEntry.type}</dd>
+                </div>
+                {selectedFlowName && (
+                  <div>
+                    <dt>Flow</dt>
+                    <dd>{selectedFlowName}</dd>
+                  </div>
+                )}
+                {selectedFlowElementName && (
+                  <div>
+                    <dt>Flow Element</dt>
+                    <dd>{selectedFlowElementName}</dd>
+                  </div>
+                )}
+                {selectedFlowElementType && (
+                  <div>
+                    <dt>Flow Element Type</dt>
+                    <dd>{selectedFlowElementType}</dd>
+                  </div>
+                )}
+                {selectedFlowDataLabels.length > 0 && (
+                  <div>
+                    <dt>Flow Data</dt>
+                    <dd>{selectedFlowDataLabels.join(', ')}</dd>
+                  </div>
+                )}
+                {selectedLimitRows.length > 0 && (
+                  <div>
+                    <dt>Limits Consumed</dt>
+                    <dd>
+                      <ul className="timeline-detail-metrics">
+                        {selectedLimitRows.map((row) => (
+                          <li key={row.label}>
+                            <span>{row.label}</span>
+                            <span>{row.value}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </dd>
+                  </div>
+                )}
+                <div>
+                  <dt>Time</dt>
+                  <dd>
+                    {selectedEntry.time} ms - {selectedEntry.endTime} ms
+                  </dd>
+                </div>
+                <div>
+                  <dt>Duration</dt>
+                  <dd>{selectedEntry.duration} ms</dd>
+                </div>
+                <div>
+                  <dt>Line</dt>
+                  <dd>{selectedEntry.lineNumber}</dd>
+                </div>
+              </dl>
+              <div className="timeline-detail-actions">
+                {onJumpToRawLogLine && (
+                  <button
+                    className="timeline-detail-action timeline-detail-action-secondary"
+                    onClick={() => onJumpToRawLogLine(selectedEntry.lineNumber)}
+                    type="button"
+                  >
+                    Jump to Raw Log Line {selectedEntry.lineNumber}
+                  </button>
+                )}
+                {selectedAutomationUnitId && (
+                  <button
+                    className="timeline-detail-action timeline-detail-action-secondary"
+                    onClick={() => onOpenAutomation(selectedAutomationUnitId)}
+                    type="button"
+                  >
+                    Open Automation
+                  </button>
+                )}
+                {(selectedEntry.type === 'soql' ||
+                  selectedEntry.type === 'dml') && (
+                  <button
+                    className="timeline-detail-action"
+                    onClick={() => onShowInLimits(selectedEntry.id)}
+                    type="button"
+                  >
+                    Show in Limits
+                  </button>
+                )}
+              </div>
+            </>
+          </section>
+        </>
       )}
     </div>
   );
@@ -1006,7 +1081,7 @@ function getTimelineFilterCounts(
   };
 
   for (const entry of timedEntries) {
-    if (isApexTimelineEntry(entry, entriesById)) {
+    if (isApexTimelineEntry(entry)) {
       counts.apex += 1;
     }
 
@@ -1038,7 +1113,7 @@ function shouldShowTimelineItem(
 ): boolean {
   const groupId = item.group as TimelineGroupId | undefined;
 
-  if (!filters.apex && isApexTimelineEntry(entry, entriesById)) {
+  if (!filters.apex && isApexTimelineEntry(entry)) {
     return false;
   }
 
@@ -1064,15 +1139,8 @@ function shouldShowTimelineItem(
   return true;
 }
 
-function isApexTimelineEntry(
-  entry: ApexLogEntry,
-  entriesById: Map<number, ApexLogEntry>
-): boolean {
-  return (
-    entry.type === 'apex' ||
-    isApexDmlEntry(entry, entriesById) ||
-    isApexSoqlEntry(entry, entriesById)
-  );
+function isApexTimelineEntry(entry: ApexLogEntry): boolean {
+  return entry.type === 'apex';
 }
 
 function isDmlTimelineEntry(entry: ApexLogEntry): boolean {
