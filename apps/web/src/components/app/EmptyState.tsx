@@ -6,17 +6,23 @@ import { SocialLinks } from '../about/SocialLinks';
 export function EmptyState({
   isRestoring,
   isDropTargetActive,
+  loadingMessage,
+  loadingTitle,
   onFileChange,
   recentLogs,
   onOpenRecentLog,
   onRemoveRecentLog,
+  showFilePicker = true,
 }: {
   isRestoring: boolean;
   isDropTargetActive: boolean;
+  loadingMessage?: string;
+  loadingTitle?: string;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   recentLogs: RecentStoredLog[];
   onOpenRecentLog: (hash: string) => void;
   onRemoveRecentLog: (hash: string) => void;
+  showFilePicker?: boolean;
 }) {
   const hasRecentLogs = !isRestoring && recentLogs.length > 0;
 
@@ -28,13 +34,13 @@ export function EmptyState({
     >
       <img className="empty-state-icon" src="./icon.png" alt="SF Profiler" />
       <div className="empty-state-main panel">
-        <h2>{isRestoring ? 'Restoring saved log' : 'Open a Salesforce debug log'}</h2>
+        <h2>{isRestoring ? loadingTitle ?? 'Restoring saved log' : 'Open a Salesforce debug log'}</h2>
         <p>
           {isRestoring
-            ? 'Loading the log from browser storage.'
+            ? loadingMessage ?? 'Loading the log from browser storage.'
             : 'An effective Salesforce profiler for Apex, Flow, SOQL, DML, and governor limits. Drag and drop a log file, or choose one manually. All parsing stays on-device in your browser.'}
         </p>
-        {!isRestoring && (
+        {!isRestoring && showFilePicker && (
           <label className="upload-target">
             <Upload size={18} aria-hidden="true" />
             <span>Open Log</span>

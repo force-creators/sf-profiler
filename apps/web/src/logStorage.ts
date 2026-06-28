@@ -1,6 +1,6 @@
 import { parseApexLog, parserVersion } from '@sfdc-profiler/core';
 import { isQuotaExceededError } from './storage/browserStorage';
-import { hashProfile, hashText } from './storage/hash';
+import { hashText } from './storage/hash';
 import {
   deleteStoredLogFromIndexedDb,
   persistStoredLogInIndexedDb,
@@ -35,7 +35,7 @@ type StoredLogMatch = {
 };
 
 export async function persistLoadedLog(loadedLog: LoadedLog): Promise<string> {
-  const hash = await hashProfile(loadedLog.profile);
+  const hash = await hashText(loadedLog.rawText);
   const storedLog: StoredLog = {
     ...loadedLog,
     version: storedLogVersion,
@@ -53,6 +53,14 @@ export async function findStoredLogByRawText(
   rawText: string
 ): Promise<StoredLogMatch | undefined> {
   const rawHash = await hashText(rawText);
+  const directStoredLog = normalizeStoredLog(await readStoredLog(rawHash));
+
+  if (directStoredLog?.rawText === rawText) {
+    return {
+      hash: rawHash,
+      storedLog: directStoredLog,
+    };
+  }
 
   let storedHash: string | undefined;
 

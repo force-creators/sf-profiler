@@ -1,4 +1,6 @@
 import {
+  Suspense,
+  lazy,
   useCallback,
   useEffect,
   useRef,
@@ -13,15 +15,8 @@ import {
 import { AnnouncementBanner } from './components/app/AnnouncementBanner';
 import { AppHeader } from './components/app/AppHeader';
 import { EmptyState } from './components/app/EmptyState';
-import { AutomationView } from './components/automation/AutomationView';
-import { InsightsView } from './components/insights/InsightsView';
-import { LimitsView } from './components/limits/LimitsView';
-import { RawLogView } from './components/rawlog/RawLogView';
-import { AboutView } from './components/about/AboutView';
-import { SettingsView } from './components/settings/SettingsView';
 import { SummaryView } from './components/summary/SummaryView';
 import { useSummaryPaneResize } from './components/summary/useSummaryPaneResize';
-import { TimelineView } from './components/timeline/TimelineView';
 import {
   clearBrowserStorage,
   closeStoredLog,
@@ -45,10 +40,87 @@ import type {
   ViewId,
 } from './types';
 
+const AboutView = lazy(() =>
+  import('./components/about/AboutView').then((module) => ({
+    default: module.AboutView,
+  }))
+);
+const AutomationView = lazy(() =>
+  import('./components/automation/AutomationView').then((module) => ({
+    default: module.AutomationView,
+  }))
+);
+const InsightsView = lazy(() =>
+  import('./components/insights/InsightsView').then((module) => ({
+    default: module.InsightsView,
+  }))
+);
+const LimitsView = lazy(() =>
+  import('./components/limits/LimitsView').then((module) => ({
+    default: module.LimitsView,
+  }))
+);
+const RawLogView = lazy(() =>
+  import('./components/rawlog/RawLogView').then((module) => ({
+    default: module.RawLogView,
+  }))
+);
+const SettingsView = lazy(() =>
+  import('./components/settings/SettingsView').then((module) => ({
+    default: module.SettingsView,
+  }))
+);
+const TimelineView = lazy(() =>
+  import('./components/timeline/TimelineView').then((module) => ({
+    default: module.TimelineView,
+  }))
+);
+
+type LoadingCopy = {
+  title: string;
+  message: string;
+};
+
+type VsCodeHostMessage =
+  | {
+      type: 'loadStarted';
+      fileName: string;
+    }
+  | {
+      type: 'openLog';
+      fileName: string;
+      rawText: string;
+    }
+  | {
+      type: 'loadError';
+      fileName?: string;
+      message: string;
+    };
+
+type VsCodeWebviewApi = {
+  postMessage: (
+    message:
+      | {
+          type: 'rendererReady';
+        }
+      | {
+          type: 'openLine';
+          lineNumber: number;
+        }
+  ) => void;
+};
+
 export function App() {
-  const vscodeInitialLogRef = useRef(window.sfdcVsCode?.initialLog);
-  const vscodeInitialThemeRef = useRef(window.sfdcVsCode?.initialTheme);
-  const isVsCodeHost = vscodeInitialLogRef.current !== undefined;
+  const vscodeConfigRef = useRef(window.sfdcVsCode);
+  const vscodeApiRef = useRef<VsCodeWebviewApi | undefined>(undefined);
+  const isVsCodeHost = Boolean(
+    vscodeConfigRef.current?.host || vscodeConfigRef.current?.initialLog
+  );
+
+  if (isVsCodeHost && !vscodeApiRef.current) {
+    vscodeApiRef.current = window.acquireVsCodeApi?.();
+  }
+
   const [loadedLog, setLoadedLog] = useState<LoadedLog>();
   const [activeView, setActiveView] = useState<ViewId>('summary');
   const [theme, setTheme] = useState<AppTheme>('light');
@@ -57,6 +129,11 @@ export function App() {
   const performanceThresholdsRef = useRef(performanceThresholds);
   const [isDropTargetActive, setIsDropTargetActive] = useState(false);
   const [isRestoringLog, setIsRestoringLog] = useState(true);
+  const [loadingCopy, setLoadingCopy] = useState<LoadingCopy | undefined>(() =>
+    isVsCodeHost
+      ? getVsCodeLoadingCopy(vscodeConfigRef.current?.initialFileName)
+      : undefined
+  );
   const [selectedTimelineEntryId, setSelectedTimelineEntryId] =
     useState<number>();
   const [timelineFocusRequest, setTimelineFocusRequest] = useState<
@@ -128,22 +205,21 @@ export function App() {
       const existingLogMatch = await findStoredLogByRawText(rawText);
 
       if (existingLogMatch) {
-        const reopenedLog = await reopenStoredLog(
+        const reopenedLog = {
+          fileName,
+          rawText: existingLogMatch.storedLog.rawText,
+          profile: existingLogMatch.storedLog.profile,
+        };
+
+        setLoadedLog(reopenedLog);
+        resetViewSelections();
+        void reopenStoredLog(
           existingLogMatch.hash,
           existingLogMatch.storedLog,
           fileName
-        );
-        const profile = parseApexLog(reopenedLog.rawText, {
-          sourceName: reopenedLog.fileName,
-          performanceThresholds,
+        ).catch((error) => {
+          console.warn('Unable to refresh stored Apex log', error);
         });
-
-        setLoadedLog({
-          fileName: reopenedLog.fileName,
-          rawText: reopenedLog.rawText,
-          profile,
-        });
-        resetViewSelections();
 
         return;
       }
@@ -157,14 +233,14 @@ export function App() {
       setLoadedLog(nextLoadedLog);
       resetViewSelections();
 
-      await persistLoadedLog(nextLoadedLog);
+      persistLoadedLogAfterPaint(nextLoadedLog);
     },
     [isVsCodeHost, performanceThresholds, resetViewSelections]
   );
 
   useEffect(() => {
     if (isVsCodeHost) {
-      setTheme(vscodeInitialThemeRef.current ?? 'light');
+      setTheme(vscodeConfigRef.current?.initialTheme ?? 'light');
       return;
     }
 
@@ -186,29 +262,100 @@ export function App() {
   }, [loadedLog]);
 
   useEffect(() => {
-    const vscodeInitialLog = vscodeInitialLogRef.current;
+    if (isVsCodeHost) {
+      const vscodeInitialLog = vscodeConfigRef.current?.initialLog;
 
-    if (vscodeInitialLog) {
-      const profile = parseApexLog(vscodeInitialLog.rawText, {
-        sourceName: vscodeInitialLog.fileName,
-        performanceThresholds: performanceThresholdsRef.current,
-      });
+      if (vscodeInitialLog) {
+        setLoadingCopy({
+          title: 'Profiling log',
+          message: `Parsing ${vscodeInitialLog.fileName}.`,
+        });
 
-      setLoadedLog({
-        fileName: vscodeInitialLog.fileName,
-        rawText: vscodeInitialLog.rawText,
-        profile,
-      });
-      resetViewSelections();
-      setIsRestoringLog(false);
+        void runAfterPaint(async () => {
+          const profile = parseApexLog(vscodeInitialLog.rawText, {
+            sourceName: vscodeInitialLog.fileName,
+            performanceThresholds: performanceThresholdsRef.current,
+          });
 
-      return undefined;
+          setLoadedLog({
+            fileName: vscodeInitialLog.fileName,
+            rawText: vscodeInitialLog.rawText,
+            profile,
+          });
+          resetViewSelections();
+          setIsRestoringLog(false);
+        });
+
+        return undefined;
+      }
+
+      let isCancelled = false;
+
+      function handleVsCodeMessage(event: MessageEvent<VsCodeHostMessage>) {
+        const message = event.data;
+
+        if (!isVsCodeHostMessage(message)) {
+          return;
+        }
+
+        if (message.type === 'loadStarted') {
+          setLoadedLog(undefined);
+          setIsRestoringLog(true);
+          setLoadingCopy({
+            title: 'Opening log',
+            message: `Reading ${message.fileName} from VS Code.`,
+          });
+          return;
+        }
+
+        if (message.type === 'loadError') {
+          setLoadedLog(undefined);
+          setIsRestoringLog(true);
+          setLoadingCopy({
+            title: 'Unable to open log',
+            message: message.message,
+          });
+          return;
+        }
+
+        setIsRestoringLog(true);
+        setLoadingCopy({
+          title: 'Profiling log',
+          message: `Parsing ${message.fileName}.`,
+        });
+
+        void runAfterPaint(async () => {
+          if (isCancelled) {
+            return;
+          }
+
+          await applyLoadedLog(message.fileName, message.rawText, {
+            persist: false,
+          });
+
+          if (!isCancelled) {
+            setIsRestoringLog(false);
+          }
+        });
+      }
+
+      setLoadedLog(undefined);
+      setIsRestoringLog(true);
+      setLoadingCopy(getVsCodeLoadingCopy(vscodeConfigRef.current?.initialFileName));
+      window.addEventListener('message', handleVsCodeMessage);
+      vscodeApiRef.current?.postMessage({ type: 'rendererReady' });
+
+      return () => {
+        isCancelled = true;
+        window.removeEventListener('message', handleVsCodeMessage);
+      };
     }
 
     let isCancelled = false;
 
     async function restorePersistedLog() {
       setIsRestoringLog(true);
+      setLoadingCopy(undefined);
 
       const storedLog = await readStoredLogFromUrl();
 
@@ -217,15 +364,10 @@ export function App() {
       }
 
       if (storedLog) {
-        const profile = parseApexLog(storedLog.rawText, {
-          sourceName: storedLog.fileName,
-          performanceThresholds: performanceThresholdsRef.current,
-        });
-
         setLoadedLog({
           fileName: storedLog.fileName,
           rawText: storedLog.rawText,
-          profile,
+          profile: storedLog.profile,
         });
       } else {
         setLoadedLog(undefined);
@@ -247,7 +389,7 @@ export function App() {
       isCancelled = true;
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, [resetViewSelections]);
+  }, [applyLoadedLog, isVsCodeHost, resetViewSelections]);
 
   useEffect(() => {
     if (isRestoringLog || loadedLog) {
@@ -259,8 +401,23 @@ export function App() {
 
   const handleFileLoad = useCallback(
     async (file: File) => {
-      const rawText = await file.text();
-      await applyLoadedLog(file.name, rawText);
+      setIsRestoringLog(true);
+      setLoadingCopy({
+        title: 'Opening log',
+        message: `Reading ${file.name}.`,
+      });
+
+      try {
+        const rawText = await file.text();
+
+        setLoadingCopy({
+          title: 'Profiling log',
+          message: `Parsing ${file.name}.`,
+        });
+        await runAfterPaint(() => applyLoadedLog(file.name, rawText));
+      } finally {
+        setIsRestoringLog(false);
+      }
     },
     [applyLoadedLog]
   );
@@ -380,6 +537,10 @@ export function App() {
 
   function openRawLogAtLine(lineNumber: number) {
     if (isVsCodeHost) {
+      vscodeApiRef.current?.postMessage({
+        type: 'openLine',
+        lineNumber,
+      });
       return;
     }
 
@@ -459,10 +620,13 @@ export function App() {
           <EmptyState
             isRestoring={isRestoringLog}
             isDropTargetActive={isDropTargetActive}
+            loadingMessage={loadingCopy?.message}
+            loadingTitle={loadingCopy?.title}
             onFileChange={handleFileChange}
             recentLogs={recentLogs}
             onOpenRecentLog={handleOpenRecentLog}
             onRemoveRecentLog={handleRemoveRecentLog}
+            showFilePicker={!isVsCodeHost}
           />
         ) : (
           <>
@@ -506,67 +670,154 @@ export function App() {
                   />
                 )}
                 <div className="summary-bottom-region">
-                  <TimelineView
-                    isExpanded={isSummaryTimelineExpanded}
-                    isActive={activeView === 'summary'}
-                    onJumpToRawLogLine={
-                      isVsCodeHost ? undefined : openRawLogAtLine
-                    }
-                    onCollapseChange={handleSummaryTimelineCollapseChange}
-                    onExpandedChange={setIsSummaryTimelineExpanded}
-                    onOpenAutomation={openAutomationView}
-                    onShowInLimits={openLimitsView}
-                    profile={loadedLog.profile}
-                    focusRequest={timelineFocusRequest}
-                    selectedEntryId={selectedTimelineEntryId}
-                  />
+                  <Suspense fallback={<TimelineLoadingFallback />}>
+                    <TimelineView
+                      isExpanded={isSummaryTimelineExpanded}
+                      isActive={activeView === 'summary'}
+                      onJumpToRawLogLine={openRawLogAtLine}
+                      onCollapseChange={handleSummaryTimelineCollapseChange}
+                      onExpandedChange={setIsSummaryTimelineExpanded}
+                      onOpenAutomation={openAutomationView}
+                      onShowInLimits={openLimitsView}
+                      profile={loadedLog.profile}
+                      focusRequest={timelineFocusRequest}
+                      selectedEntryId={selectedTimelineEntryId}
+                    />
+                  </Suspense>
                 </div>
               </div>
             </div>
             {activeView === 'limits' && (
-              <LimitsView
-                jumpRequest={limitsJumpRequest}
-                onSelectTimelineEntry={focusTimelineEntry}
-                profile={loadedLog.profile}
-                selectedEntryId={selectedLimitEntryId}
-              />
+              <Suspense fallback={<ViewLoadingFallback label="Loading limits..." />}>
+                <LimitsView
+                  jumpRequest={limitsJumpRequest}
+                  onSelectTimelineEntry={focusTimelineEntry}
+                  profile={loadedLog.profile}
+                  selectedEntryId={selectedLimitEntryId}
+                />
+              </Suspense>
             )}
             {activeView === 'automation' && (
-              <AutomationView
-                jumpRequest={automationJumpRequest}
-                onOpenInsight={openInsightsView}
-                onSelectTimelineEntry={focusTimelineEntry}
-                profile={loadedLog.profile}
-              />
+              <Suspense
+                fallback={<ViewLoadingFallback label="Loading automation..." />}
+              >
+                <AutomationView
+                  jumpRequest={automationJumpRequest}
+                  onOpenInsight={openInsightsView}
+                  onSelectTimelineEntry={focusTimelineEntry}
+                  profile={loadedLog.profile}
+                />
+              </Suspense>
             )}
             {activeView === 'insights' && (
-              <InsightsView
-                jumpRequest={insightJumpRequest}
-                onOpenAutomation={openAutomationView}
-                onSelectTimelineEntry={focusTimelineEntry}
-                profile={loadedLog.profile}
-              />
+              <Suspense fallback={<ViewLoadingFallback label="Loading insights..." />}>
+                <InsightsView
+                  jumpRequest={insightJumpRequest}
+                  onOpenAutomation={openAutomationView}
+                  onSelectTimelineEntry={focusTimelineEntry}
+                  profile={loadedLog.profile}
+                />
+              </Suspense>
             )}
             {activeView === 'rawLog' && (
-              <RawLogView
-                jumpRequest={rawLogJumpRequest}
-                rawText={loadedLog.rawText}
-                theme={theme}
-              />
+              <Suspense fallback={<ViewLoadingFallback label="Loading log viewer..." />}>
+                <RawLogView
+                  jumpRequest={rawLogJumpRequest}
+                  rawText={loadedLog.rawText}
+                  theme={theme}
+                />
+              </Suspense>
             )}
             {activeView === 'settings' && (
-              <SettingsView
-                performanceThresholds={performanceThresholds}
-                theme={theme}
-                onClearStorage={handleClearStorage}
-                onPerformanceThresholdsChange={handlePerformanceThresholdsChange}
-                onThemeChange={handleThemeChange}
-              />
+              <Suspense fallback={<ViewLoadingFallback label="Loading settings..." />}>
+                <SettingsView
+                  performanceThresholds={performanceThresholds}
+                  theme={theme}
+                  onClearStorage={handleClearStorage}
+                  onPerformanceThresholdsChange={handlePerformanceThresholdsChange}
+                  onThemeChange={handleThemeChange}
+                />
+              </Suspense>
             )}
-            {activeView === 'about' && <AboutView />}
+            {activeView === 'about' && (
+              <Suspense fallback={<ViewLoadingFallback label="Loading about..." />}>
+                <AboutView />
+              </Suspense>
+            )}
           </>
         )}
       </section>
     </main>
   );
+}
+
+function TimelineLoadingFallback() {
+  return (
+    <section className="panel timeline-panel">
+      <div className="timeline-stage-frame">
+        <div
+          aria-live="polite"
+          className="timeline-rendering-overlay"
+          role="status"
+        >
+          <span className="timeline-rendering-spinner" aria-hidden="true" />
+          <span>Rendering timeline...</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ViewLoadingFallback({ label }: { label: string }) {
+  return (
+    <section className="panel view-loading-panel" aria-live="polite" role="status">
+      <span className="timeline-rendering-spinner" aria-hidden="true" />
+      <span>{label}</span>
+    </section>
+  );
+}
+
+function getVsCodeLoadingCopy(fileName?: string): LoadingCopy {
+  return {
+    title: 'Opening log',
+    message: fileName
+      ? `Waiting for ${fileName} from VS Code.`
+      : 'Waiting for VS Code to send the log.',
+  };
+}
+
+function isVsCodeHostMessage(value: unknown): value is VsCodeHostMessage {
+  if (!value || typeof value !== 'object' || !('type' in value)) {
+    return false;
+  }
+
+  const message = value as Partial<VsCodeHostMessage>;
+
+  return (
+    (message.type === 'loadStarted' && typeof message.fileName === 'string') ||
+    (message.type === 'openLog' &&
+      typeof message.fileName === 'string' &&
+      typeof message.rawText === 'string') ||
+    (message.type === 'loadError' && typeof message.message === 'string')
+  );
+}
+
+function persistLoadedLogAfterPaint(loadedLog: LoadedLog) {
+  window.setTimeout(() => {
+    void persistLoadedLog(loadedLog).catch((error) => {
+      console.warn('Unable to persist Apex log analysis', error);
+    });
+  }, 0);
+}
+
+function runAfterPaint<T>(task: () => T | Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        Promise.resolve()
+          .then(task)
+          .then(resolve, reject);
+      }, 0);
+    });
+  });
 }

@@ -5,6 +5,10 @@ import { field } from '../lines/fields';
 export class ExecutionCollector {
   readonly soqlExecutions: SoqlExecution[] = [];
   readonly dmlExecutions: DmlExecution[] = [];
+  private readonly soqlExecutionsByNormalizedQuery = new Map<
+    string,
+    SoqlExecution[]
+  >();
 
   addSoqlExecution(entry: ApexLogEntry): SoqlExecution {
     const execution = this.createSoqlExecution(entry);
@@ -45,13 +49,10 @@ export class ExecutionCollector {
     const soql = entry.metadata?.soql;
     const query = soql?.query ?? entry.detail;
     const normalizedQuery = normalizeSoqlQuery(query);
-    const firstDuplicate = this.soqlExecutions.find(
-      (execution) => execution.normalizedQuery === normalizedQuery
-    );
-    const duplicateCount =
-      this.soqlExecutions.filter(
-        (execution) => execution.normalizedQuery === normalizedQuery
-      ).length + 1;
+    const duplicateExecutions =
+      this.soqlExecutionsByNormalizedQuery.get(normalizedQuery) ?? [];
+    const firstDuplicate = duplicateExecutions[0];
+    const duplicateCount = duplicateExecutions.length + 1;
     const execution: SoqlExecution = {
       id: this.soqlExecutions.length,
       entryId: entry.id,
@@ -78,11 +79,15 @@ export class ExecutionCollector {
       };
     }
 
-    for (const previousExecution of this.soqlExecutions) {
-      if (previousExecution.normalizedQuery === normalizedQuery) {
-        previousExecution.duplicateCount = duplicateCount;
-      }
+    for (const previousExecution of duplicateExecutions) {
+      previousExecution.duplicateCount = duplicateCount;
     }
+
+    duplicateExecutions.push(execution);
+    this.soqlExecutionsByNormalizedQuery.set(
+      normalizedQuery,
+      duplicateExecutions
+    );
 
     return execution;
   }

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
-import Editor from '@monaco-editor/react';
+import Editor, { loader } from '@monaco-editor/react';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
+import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import type { editor } from 'monaco-editor';
 import type { AppTheme } from '../../types';
 import {
@@ -16,6 +18,18 @@ type RawLogJumpRequest = {
 
 const PULSE_DURATION_MS = 700;
 const FADE_DURATION_MS = 2200;
+
+(self as unknown as {
+  MonacoEnvironment: {
+    getWorker: () => Worker;
+  };
+}).MonacoEnvironment = {
+  getWorker() {
+    return new editorWorker();
+  },
+};
+
+loader.config({ monaco });
 
 export function RawLogView({
   jumpRequest,

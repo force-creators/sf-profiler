@@ -1,9 +1,3 @@
-import type { ApexLogProfile } from '@sfdc-profiler/core';
-
-export async function hashProfile(profile: ApexLogProfile): Promise<string> {
-  return hashText(JSON.stringify(profile));
-}
-
 export async function hashText(value: string): Promise<string> {
   if (!window.crypto?.subtle) {
     return fallbackHash(value);

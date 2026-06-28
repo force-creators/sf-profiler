@@ -6,6 +6,19 @@ type InitialLogPayload = {
   rawText: string;
 };
 
+type WebviewConfigPayload = {
+  fileName: string;
+};
+
+type WebviewClientMessage =
+  | {
+      type: 'rendererReady';
+    }
+  | {
+      type: 'openLine';
+      lineNumber: number;
+    };
+
 type WebviewTheme = 'light' | 'dark';
 
 const profileLogCommand = 'sfdc-profiler.profileLog';
@@ -39,16 +52,12 @@ async function profileLog(
     return;
   }
 
-  const fileBytes = await vscode.workspace.fs.readFile(targetUri);
-  const rawText = new TextDecoder().decode(fileBytes);
-  const payload: InitialLogPayload = {
-    fileName: path.basename(targetUri.fsPath || targetUri.path),
-    rawText,
-  };
+  const logUri = targetUri;
+  const fileName = path.basename(logUri.fsPath || logUri.path);
 
   const panel = vscode.window.createWebviewPanel(
     'sfdcProfilerLogProfile',
-    `SF Profiler: ${payload.fileName}`,
+    `SF Profiler: ${fileName}`,
     vscode.ViewColumn.Active,
     {
       enableScripts: true,
@@ -71,7 +80,54 @@ async function profileLog(
     localResourceRoots: [webDistUri],
   };
   panel.iconPath = vscode.Uri.joinPath(webDistUri, 'icon.png');
-  panel.webview.html = await getWebviewHtml(panel.webview, webDistUri, payload);
+
+  let isLoadingLog = false;
+  let didSendLog = false;
+
+  async function loadAndSendLog() {
+    if (isLoadingLog || didSendLog) {
+      return;
+    }
+
+    isLoadingLog = true;
+    await panel.webview.postMessage({ type: 'loadStarted', fileName });
+
+    try {
+      const fileBytes = await vscode.workspace.fs.readFile(logUri);
+      const rawText = new TextDecoder().decode(fileBytes);
+      const payload: InitialLogPayload = { fileName, rawText };
+
+      didSendLog = true;
+      await panel.webview.postMessage({ type: 'openLog', ...payload });
+    } catch (error) {
+      await panel.webview.postMessage({
+        type: 'loadError',
+        fileName,
+        message: getErrorMessage(error),
+      });
+    } finally {
+      isLoadingLog = false;
+    }
+  }
+
+  panel.webview.onDidReceiveMessage((message: WebviewClientMessage) => {
+    if (!isWebviewClientMessage(message)) {
+      return;
+    }
+
+    if (message.type === 'rendererReady') {
+      void loadAndSendLog();
+      return;
+    }
+
+    if (message.type === 'openLine') {
+      void revealLogLine(logUri, message.lineNumber);
+    }
+  });
+
+  panel.webview.html = await getWebviewHtml(panel.webview, webDistUri, {
+    fileName,
+  });
 }
 
 function getTargetUri(
@@ -118,7 +174,7 @@ async function uriExists(uri: vscode.Uri): Promise<boolean> {
 async function getWebviewHtml(
   webview: vscode.Webview,
   webDistUri: vscode.Uri,
-  payload: InitialLogPayload
+  payload: WebviewConfigPayload
 ): Promise<string> {
   const indexHtmlUri = vscode.Uri.joinPath(webDistUri, 'index.html');
   const indexHtmlBytes = await vscode.workspace.fs.readFile(indexHtmlUri);
@@ -132,9 +188,10 @@ async function getWebviewHtml(
     `style-src ${webview.cspSource} 'unsafe-inline'`,
     `script-src ${webview.cspSource} 'nonce-${nonce}'`,
   ].join('; ');
-  const initialLogScript = `<script nonce="${nonce}">window.sfdcVsCode = ${serializeScriptJson(
+  const initialConfigScript = `<script nonce="${nonce}">window.sfdcVsCode = ${serializeScriptJson(
     {
-      initialLog: payload,
+      host: true,
+      initialFileName: payload.fileName,
       initialTheme: getInitialWebviewTheme(),
     }
   )};</script>`;
@@ -149,7 +206,7 @@ async function getWebviewHtml(
       )}">`
     )
     .replace(/<script /g, `<script nonce="${nonce}" `)
-    .replace(/<\/head>/, `${initialLogScript}</head>`)
+    .replace(/<\/head>/, `${initialConfigScript}</head>`)
     .replace(/\b(href|src)="([^"]+)"/g, (match, attribute: string, value: string) => {
       if (!shouldRewriteAssetUri(value)) {
         return match;
@@ -161,6 +218,52 @@ async function getWebviewHtml(
 
       return `${attribute}="${webviewUri.toString()}"`;
     });
+}
+
+async function revealLogLine(targetUri: vscode.Uri, lineNumber: number) {
+  const document = await vscode.workspace.openTextDocument(targetUri);
+  const visibleEditor = vscode.window.visibleTextEditors.find(
+    (editor) => editor.document.uri.toString() === document.uri.toString()
+  );
+  const editor = visibleEditor
+    ? await vscode.window.showTextDocument(document, {
+        viewColumn: visibleEditor.viewColumn,
+        preserveFocus: false,
+        preview: false,
+      })
+    : await vscode.window.showTextDocument(document, {
+        viewColumn: vscode.ViewColumn.Beside,
+        preserveFocus: false,
+        preview: false,
+      });
+  const targetLine = Math.min(
+    Math.max(Math.trunc(lineNumber) - 1, 0),
+    Math.max(document.lineCount - 1, 0)
+  );
+  const position = new vscode.Position(targetLine, 0);
+  const range = new vscode.Range(position, position);
+
+  editor.selection = new vscode.Selection(position, position);
+  editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+}
+
+function isWebviewClientMessage(
+  value: unknown
+): value is WebviewClientMessage {
+  if (!value || typeof value !== 'object' || !('type' in value)) {
+    return false;
+  }
+
+  const message = value as Partial<WebviewClientMessage>;
+
+  return (
+    message.type === 'rendererReady' ||
+    (message.type === 'openLine' && typeof message.lineNumber === 'number')
+  );
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function shouldRewriteAssetUri(value: string): boolean {
